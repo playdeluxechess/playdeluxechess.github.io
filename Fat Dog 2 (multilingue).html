@@ -1,0 +1,1150 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Fat Dog 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Figtree:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Mise en page : titre et couleur à gauche, échiquier encadré de marine à droite (barre d'évaluation, cartes joueurs, boutons pilule).
+   Sur téléphone tout passe en une colonne : titre, échiquier, panneau du bot. */
+:root{
+  --bg:#ffffff; --panel:#ffffff; --soft:#f2f4fb; --line:#d8dff2;
+  --ink:#10175a; --muted:#59648f; --accent:#10175a; --accent-ink:#ffffff;
+  --navy:#0d1568; --frame:#0d1568; --sq-light:#eef1fb; --sq-dark:#a9b9e2;
+  --hl:rgba(60,84,214,.26); --sel:rgba(60,84,214,.45); --danger:#d9344f; --ok:#1f9d6b;
+  --font-display:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --font-body:'Figtree','Segoe UI',system-ui,sans-serif;
+  --font-mono:'DM Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body);
+  font-size:15px; line-height:1.45;
+  padding-block:24px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+.intro{display:flex;flex-direction:column;gap:16px;min-width:0}
+.stage{display:flex;flex-direction:column;gap:14px;min-width:0;--bs:min(calc(100vw - 32px - 44px),600px)}
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+@media (min-width:901px){
+  .app{grid-template-columns:auto minmax(260px,1fr);grid-template-areas:"intro intro" "stage panel";column-gap:30px;align-items:start}
+  .intro{grid-area:intro} .stage{grid-area:stage;--bs:clamp(260px,calc(100vw - 32px - 30px - 280px - 52px - 122px),560px)} .panel{grid-area:panel}
+  .app[data-tab=pick]{grid-template-columns:minmax(0,1fr);grid-template-areas:"intro" "pick"} .pick{grid-area:pick}
+}
+h1{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,4vw,40px);letter-spacing:-.02em;margin:0;line-height:1.08;text-wrap:balance}
+.sub{color:var(--muted);font-size:16px;max-width:46ch;text-wrap:pretty}
+.sub b{color:var(--ink);font-weight:600}
+.label{font:600 11px var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.colors button{display:flex;align-items:center;justify-content:center;gap:9px;padding:13px 10px;border-radius:999px;border:2px solid transparent;background:var(--panel);color:var(--ink);font:600 15px var(--font-body);cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.colors button:hover{box-shadow:0 0 0 1px var(--ink)}
+.colors button[aria-pressed="true"]{border-color:var(--ink);box-shadow:none}
+.ic{width:14px;height:14px;border-radius:50%;border:2px solid var(--ink);flex:none}
+.ic.w{background:var(--panel)} .ic.b{background:var(--ink)} .ic.r{background:linear-gradient(90deg,var(--ink) 50%,var(--panel) 50%)}
+
+/* Cartes joueurs */
+.pcard{display:flex;align-items:center;gap:14px;min-width:0}
+.avatar{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;flex:none;box-shadow:0 0 0 3px var(--panel),0 0 0 4px var(--line)}
+.avatar.bot{background:var(--navy)} .avatar.me{background:#fff}
+.avatar .pcs{width:80%;height:80%}
+.pname{font-family:var(--font-display);font-weight:800;font-size:19px;line-height:1.2}
+.psub{color:var(--muted);font-size:14px}
+.pinfo{min-width:0}
+
+/* Échiquier */
+.boardrow{display:flex;align-items:flex-start;gap:12px}
+.vwrap{display:none;flex-direction:column;align-items:center;gap:8px;margin-top:26px;width:34px;flex:none}
+@media (min-width:901px){.vwrap{display:flex}}
+.vbar{width:100%;height:var(--bs);border-radius:8px;background:var(--navy);position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.vfill{position:absolute;left:0;right:0;bottom:0;height:50%;background:#fff;transition:height .45s ease}
+.vbar.flip .vfill{top:0;bottom:auto}
+.vnum{font:500 12px var(--font-mono);color:var(--ink)}
+.frame{position:relative;background:var(--frame);border-radius:18px;padding:22px;width:calc(var(--bs) + 44px);flex:none;max-width:100%}
+@media (min-width:901px){.frame{padding:26px;width:calc(var(--bs) + 52px)}}
+.board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:var(--bs);height:var(--bs);touch-action:manipulation}
+.ranks{position:absolute;left:0;top:22px;width:22px;height:var(--bs);display:grid;grid-template-rows:repeat(8,1fr)}
+.files{position:absolute;left:22px;bottom:0;width:var(--bs);height:22px;display:grid;grid-template-columns:repeat(8,1fr)}
+@media (min-width:901px){.ranks{top:26px;width:26px}.files{left:26px;height:26px}}
+.ranks span,.files span{display:flex;align-items:center;justify-content:center;font:600 11px var(--font-body);color:#fff}
+.sq{position:relative;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;cursor:pointer}
+.sq.l{background:var(--sq-light)} .sq.d{background:var(--sq-dark)}
+.sq.last::before,.sq.sel::before{content:"";position:absolute;inset:0;background:var(--hl)}
+.sq.sel::before{background:var(--sel)}
+.sq.chk{box-shadow:inset 0 0 0 calc(var(--bs) / 8 * .07) var(--danger)}
+.sq.mv::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:var(--navy);opacity:.34}
+.sq.tk::after{content:"";position:absolute;inset:5%;border-radius:50%;border:calc(var(--bs) / 8 * .08) solid var(--navy);opacity:.36}
+
+/* Pièces dessinées en SVG : marine plein ou blanc cerné de marine */
+.pcs{display:block;width:88%;height:88%;pointer-events:none;overflow:visible}
+.pcs .ol{fill:var(--navy);stroke:var(--navy);stroke-width:3.4;stroke-linejoin:round}
+.pcs.w .fl{fill:#fff;stroke:none}
+.pcs.b .fl{fill:var(--navy);stroke:none}
+.pcs .dt{fill:none;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.pcs.w .dt{stroke:var(--navy)} .pcs.b .dt{stroke:#dfe6ff}
+.sq .pcs{position:relative;z-index:1}
+
+.me-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:8px;font:600 15px var(--font-body);padding:11px 18px;border-radius:999px;border:0;background:var(--panel);color:var(--ink);cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.pill:hover:not(:disabled){box-shadow:0 0 0 1px var(--ink)}
+.pill.dark{background:var(--navy);color:#fff;box-shadow:none}
+:root:not([data-theme="light"]) .pill.dark{background:var(--accent);color:var(--accent-ink)}
+.pill:disabled{opacity:.45;cursor:not-allowed}
+.pill svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.status{display:flex;align-items:center;gap:10px;font-weight:600;min-height:24px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+.dot.busy{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+.dot.over{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.dot.busy{animation:none}.vfill,.hfill{transition:none!important}}
+
+/* Panneau du bot */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.engine{color:var(--muted);font-size:13px}
+.thought{background:var(--soft);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.san{font-family:var(--font-display);font-weight:800;font-size:30px;line-height:1.05;min-height:32px}
+.say{margin:0;font-size:15px;text-wrap:pretty}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 12px var(--font-mono);border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 9px}
+.chip.pick{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.hrow{display:flex;align-items:center;gap:10px}
+@media (min-width:901px){.hrow{display:none}}
+.hbar{flex:1;height:10px;border-radius:6px;background:var(--navy);overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.hfill{height:100%;width:50%;background:#fff;transition:width .45s ease}
+.hnum{font:500 13px var(--font-mono);min-width:46px;text-align:right}
+.moves{display:grid;grid-template-columns:34px 1fr 1fr;font:13px var(--font-mono);max-height:170px;overflow:auto;align-content:start}
+.moves div{padding:4px 6px}
+.moves .n{color:var(--muted)}
+.moves .cur{background:var(--soft);border-radius:6px;font-weight:500}
+.moves .empty{grid-column:1 / -1;color:var(--muted);font-family:var(--font-body)}
+.caprow{display:flex;align-items:center;gap:8px;min-height:28px}
+.caprow .who{width:44px;color:var(--muted);font-size:13px;flex:none}
+.caps{display:flex;flex-wrap:wrap;min-width:0}
+.caps .pcs{width:22px;height:22px;margin-right:-5px}
+.adv{font:500 12px var(--font-mono);color:var(--muted)}
+.bubble{position:relative;display:flex;align-items:baseline;gap:12px;background:var(--panel);border-radius:16px;padding:12px 16px;box-shadow:0 0 0 1px var(--line);margin-bottom:6px;min-width:0}
+.bubble::after{content:"";position:absolute;left:24px;bottom:-7px;width:14px;height:14px;background:var(--panel);transform:rotate(45deg);box-shadow:1px 1px 0 0 var(--line)}
+.bubble .san{font-size:22px;min-height:0;flex:none}
+.bubble .say{flex:1;min-width:0}
+.wm{position:absolute;right:24px;top:6px;font:700 11px var(--font-body);letter-spacing:.02em;color:#fff;opacity:.9}
+@media (min-width:901px){.wm{top:8px}}
+.opp{display:flex;align-items:center;gap:14px}
+.chips:empty::before{content:"Les coups comparés par le bot apparaîtront ici.";color:var(--muted);font-size:14px}
+.sq.land::before{animation:landflash .7s ease-out}
+@keyframes landflash{0%{background:rgba(60,84,214,.7)}100%{background:var(--hl)}}
+.ghost{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0}
+.ghost .pcs{width:88%;height:88%}
+@media (prefers-reduced-motion:reduce){.sq.land::before{animation:none}}
+.promo{position:fixed;inset:0;background:rgba(10,14,40,.55);display:grid;place-items:center;z-index:20;padding:16px}
+.promo[hidden]{display:none!important}
+.promo-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center}
+.promo-row{display:flex;gap:10px}
+.promo-row button{width:68px;height:68px;border-radius:14px;border:1px solid var(--line);background:var(--sq-light);cursor:pointer;display:grid;place-items:center;padding:0}
+.promo-row button:hover{border-color:var(--navy)}
+.promo-row .pcs{width:84%;height:84%}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.langsel{font:600 15px var(--font-body);padding:11px 14px;border-radius:999px;border:0;background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line);cursor:pointer;margin-left:auto}
+.langsel:hover{box-shadow:0 0 0 1px var(--ink)}
+.pill[aria-pressed=true]{background:var(--navy);color:#fff;box-shadow:none}
+.pick{display:none;flex-direction:column;gap:16px;max-width:760px}
+.app[data-tab=pick] .pick{display:flex} .app[data-tab=pick] .stage,.app[data-tab=pick] .panel{display:none}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.sl{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:10px;font-size:14px}
+.capcol{display:flex;flex-direction:column;justify-content:space-between;width:64px;height:var(--bs);margin-top:22px;flex:none}
+@media (min-width:901px){.capcol{margin-top:26px}}
+.capcol .who{font:600 10px var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+@media (max-width:600px){.boardrow{flex-wrap:wrap}.capcol{flex-direction:row;width:100%;height:auto;margin:0;gap:12px}.capcol>div{flex:1}}
+.chat{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto}
+.msg{background:var(--soft);border-radius:12px;padding:8px 12px;font-size:14px}.msg b{font-family:var(--font-display);margin-right:6px}
+.st{display:grid;grid-template-columns:100px 1fr 28px;align-items:center;gap:10px;font-size:13px}
+.bar{height:8px;border-radius:5px;background:var(--soft);overflow:hidden}.bar i{display:block;height:100%;background:var(--navy)}
+#statBox{display:flex;flex-direction:column;gap:8px}
+#customBox{display:flex;flex-direction:column;gap:12px}
+.sq.mate{z-index:3;box-shadow:inset 0 0 0 calc(var(--bs) / 8 * .07) var(--danger)}
+.sq.mate .pcs{transform-origin:50% 90%;animation:fall .9s cubic-bezier(.5,0,.9,.6) forwards}
+@keyframes fall{0%{transform:rotate(0)}15%{transform:rotate(-6deg)}100%{transform:rotate(88deg) translateY(8%)}}
+@media (prefers-reduced-motion:reduce){.sq.mate .pcs{animation:none;transform:rotate(88deg)}}
+.mod{display:flex;flex-direction:column;gap:6px}
+#eloRow{flex-direction:column;gap:14px} #eloRow .sl{grid-template-columns:150px 1fr}
+.notes{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
+.notes:empty::before{content:var(--notes-empty,"");color:var(--muted);font-size:13px}
+.note{font-size:13px;border-left:3px solid var(--line);padding:2px 0 2px 10px}
+.note b{font-family:var(--font-mono);margin-right:6px}.note .gr{font-weight:700;margin-right:6px}.note i{color:var(--muted);font-style:normal}
+.g0{color:var(--ok)}.g1{color:var(--ink)}.g2{color:#b88400}.g3{color:#d9702c}.g4{color:var(--danger)}
+.sq.chk .pcs{animation:trem .16s linear infinite}
+@keyframes trem{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-2px) rotate(-3deg)}75%{transform:translateX(2px) rotate(3deg)}}
+@media (prefers-reduced-motion:reduce){.sq.chk .pcs{animation:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="p-s"><circle cx="22.5" cy="11.5" r="5.2"/><ellipse cx="22.5" cy="19.2" rx="7" ry="2.3"/><path d="M17 20.5C17 27 14.5 30 12.5 34h20C30.5 30 28 27 28 20.5z"/><rect x="10" y="33.5" width="25" height="5" rx="2"/></g>
+    <g id="p-d"><path d="M13.5 34h18"/></g>
+    <g id="r-s"><path d="M12 10h5.5v3.2h3.4V10h3.2v3.2h3.4V10H33v9H12z"/><path d="M14.5 19h16l1.5 14H13z"/><rect x="10" y="32.5" width="25" height="6" rx="2"/></g>
+    <g id="r-d"><path d="M12.5 19.2h20M14.8 23h15.4M12 33h21"/></g>
+    <g id="n-s"><path d="M14 34C14 26 17 22 21 18C18 18 16 20 14 23L10 22C11 17 14 14 17 12L15 8L20 10C22 9 24 9 26 10C33 12 35 20 34 28C34 31 33.5 33 33.5 34Z"/><rect x="10" y="33.5" width="25" height="5" rx="2"/></g>
+    <g id="n-d"><path d="M24.5 12c3 1 6.5 4.5 7 9"/><path d="M10.6 21.8l2.2-.3"/><circle cx="17.4" cy="14.6" r=".9"/><path d="M13 34h19"/></g>
+    <g id="b-s"><circle cx="22.5" cy="6.3" r="2.3"/><path d="M22.5 8c5 3 7 7.5 5.3 11.5H17.2C15.5 15.5 17.5 11 22.5 8z"/><rect x="15" y="19" width="15" height="3.2" rx="1.4"/><path d="M17.5 22h10c.5 5 2.5 8 4 11.5h-18c1.5-3.5 3.5-6.5 4-11.5z"/><rect x="10" y="33.5" width="25" height="5" rx="2"/></g>
+    <g id="b-d"><path d="M22.5 11.8l3.2 4M13.5 34h18"/></g>
+    <g id="q-s"><circle cx="11.5" cy="11" r="2.2"/><circle cx="17" cy="7.5" r="2.2"/><circle cx="22.5" cy="6.3" r="2.2"/><circle cx="28" cy="7.5" r="2.2"/><circle cx="33.5" cy="11" r="2.2"/><path d="M12.5 12.5L16 24H29L32.5 12.5L27.5 19L25.5 10.5L22.5 19L19.5 10.5L17.5 19Z"/><rect x="14.5" y="23.5" width="16" height="3.4" rx="1.5"/><path d="M16 27h13l2.5 7h-18z"/><rect x="10" y="33.5" width="25" height="5" rx="2"/></g>
+    <g id="q-d"><path d="M16.5 27.3h12M13.5 34h18"/></g>
+    <g id="k-s"><rect x="21" y="2.5" width="3" height="9" rx="1"/><rect x="18" y="5.5" width="9" height="3" rx="1"/><path d="M22.5 11.5c-6.5 0-10.5 4.5-9 11.5h18c1.5-7-2.5-11.5-9-11.5z"/><rect x="13.5" y="22.5" width="18" height="3.4" rx="1.5"/><path d="M16 26h13l2.5 8h-18z"/><rect x="10" y="33.5" width="25" height="5" rx="2"/></g>
+    <g id="k-d"><path d="M16.5 26.4h12M13.5 34h18M22.5 14v6"/></g>
+  </defs>
+</svg>
+
+<div class="app" id="app" data-tab="play">
+  <header class="intro">
+    <h1>Fat Dog 2</h1>
+    <div class="tabs"><button type="button" class="pill" data-tab="play" aria-pressed="true" data-i18n="tabPlay">Partie</button><button type="button" class="pill" data-tab="pick" aria-pressed="false" data-i18n="tabPick">Choix</button><select id="lang" class="langsel" aria-label="Language"><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option></select></div>
+  </header>
+
+  <section class="pick">
+    <div class="card"><div class="label" data-i18n="yourColor">Votre couleur</div>
+      <div class="colors" role="group"><button type="button" data-color="w" aria-pressed="true"><span class="ic w"></span><span data-i18n="white">Blancs</span></button><button type="button" data-color="b" aria-pressed="false"><span class="ic b"></span><span data-i18n="black">Noirs</span></button><button type="button" data-color="r" aria-pressed="false"><span class="ic r"></span><span data-i18n="random">Aléatoire</span></button></div></div>
+    <div class="card"><div class="label" data-i18n="eloLevel">Niveau (Elo)</div><div id="eloRow" class="opts"></div></div>
+    <div class="card"><div class="label" data-i18n="styleOf">Style de Fat Dog 2</div><div id="styleRow" class="opts"></div>
+      <div class="label" data-i18n="legendStyle">Style d'un grand joueur</div><div id="legRow" class="opts"></div>
+      <div id="customBox"><div class="label" data-i18n="createStyle">Créer mon style</div><div id="sliders"></div><div><button id="customBtn" type="button" class="pill" data-i18n="useMyStyle">Utiliser mon style</button></div></div>
+      <p id="styleDesc" class="sub"></p><div id="statBox"></div></div>
+    <div><button id="goBtn" type="button" class="pill dark" data-i18n="playVs">Jouer contre Fat Dog 2</button></div>
+  </section>
+
+  <section class="stage">
+    <div class="bubble" aria-live="polite">
+      <div id="san" class="san">…</div>
+      <p id="say" class="say">Prêt ? Fat Dog 2 t'attend.</p>
+    </div>
+    <div class="pcard">
+      <div id="av-top" class="avatar bot"></div>
+      <div class="pinfo"><div id="nm-top" class="pname">Fat Dog 2</div><div id="sb-top" class="psub"></div></div>
+    </div>
+    <div class="boardrow">
+      <div class="vwrap" title="Évaluation vue des Blancs" data-i18n-title="evalTitle">
+        <div id="vbar" class="vbar"><div id="vfill" class="vfill"></div></div>
+        <div id="vnum" class="vnum">0.00</div>
+      </div>
+      <div class="frame">
+        <div class="wm" aria-hidden="true">Fat Dog 2</div>
+        <div id="ranks" class="ranks" aria-hidden="true"></div>
+        <div id="board" class="board" role="grid" aria-label="Échiquier" data-i18n-aria="boardLbl"></div>
+        <div id="files" class="files" aria-hidden="true"></div>
+      </div>
+      <div class="capcol">
+        <div><div class="who" data-i18n="botTook">Fat Dog 2 a pris</div><div id="capBot" class="caps"></div><span id="advBot" class="adv"></span></div>
+        <div><span id="advMine" class="adv"></span><div id="capMine" class="caps"></div><div class="who" data-i18n="youTook">Vous avez pris</div></div>
+      </div>
+    </div>
+    <div class="me-row">
+      <div class="pcard">
+        <div id="av-bot" class="avatar me"></div>
+        <div class="pinfo"><div id="nm-bot" class="pname">Vous</div><div id="sb-bot" class="psub"></div></div>
+      </div>
+      <div class="btns">
+        <button id="undoBtn" class="pill" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg><span data-i18n="undo">Revenir</span></button>
+        <button id="newBtn" class="pill" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 019-9 9.5 9.5 0 016.7 2.8L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 01-9 9 9.5 9.5 0 01-6.7-2.8L3 16"/><path d="M8 16H3v5"/></svg><span data-i18n="replay">Rejouer</span></button>
+        <button id="flipBtn" class="pill dark" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3"/><path d="M17 20V4M17 4l-3 3M17 4l3 3"/></svg><span data-i18n="flip">Retourner</span></button>
+      </div>
+    </div>
+    <div class="status"><span id="dot" class="dot"></span><span id="status">À vous de jouer.</span></div>
+  </section>
+
+  <aside class="panel">
+    <div class="card">
+      <div class="label" data-i18n="botSays">Fat Dog 2 dit</div>
+      <div id="chat" class="chat"></div>
+      <div class="hrow" title="Évaluation vue des Blancs" data-i18n-title="evalTitle"><span class="label" data-i18n="evalShort">Éval.</span><div class="hbar"><div id="hfill" class="hfill"></div></div><span id="hnum" class="hnum">0.00</span></div>
+    </div>
+    <div class="card">
+      <div class="label" data-i18n="moveNotes">Commentaire des coups</div>
+      <div id="notes" class="notes"></div>
+    </div>
+    <div class="card">
+      <div class="label" data-i18n="moves">Coups</div>
+      <div id="moves" class="moves"></div>
+    </div>
+  </aside>
+</div>
+
+<div hidden><span id="engineState"></span><div id="av-opp"></div></div>
+<div id="promo" class="promo" hidden>
+  <div class="promo-box" role="dialog" aria-label="Choisir la pièce de promotion" data-i18n-aria="promoAria">
+    <div class="label" data-i18n="promoLbl">Promotion</div>
+    <div id="promoRow" class="promo-row"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script>
+(function(){
+'use strict';
+var FILES='abcdefgh';
+var LANG='fr';
+var I18N={
+fr:{tabPlay:"Partie",tabPick:"Choix",yourColor:"Votre couleur",white:"Blancs",black:"Noirs",random:"Aléatoire",eloLevel:"Niveau (Elo)",styleOf:"Style de Fat Dog 2",legendStyle:"Style d'un grand joueur",createStyle:"Créer mon style",useMyStyle:"Utiliser mon style",playVs:"Jouer contre Fat Dog 2",evalTitle:"Évaluation vue des Blancs",boardLbl:"Échiquier",botTook:"Fat Dog 2 a pris",youTook:"Vous avez pris",you:"Vous",undo:"Revenir",replay:"Rejouer",flip:"Retourner",botSays:"Fat Dog 2 dit",evalShort:"Éval.",moveNotes:"Commentaire des coups",moves:"Coups",promoLbl:"Promotion",promoAria:"Choisir la pièce de promotion",notesEmpty:"Joue un coup : je dirai s'il est théorique et s'il est bon.",
+pn:{p:"pion",n:"cavalier",b:"fou",r:"tour",q:"dame"},
+open1:"{n} ! Mon terrain de jeu.",open2:"{n} : je connais ça par cœur.",open3:"On part sur {n}. Accroche-toi.",openQGD:"Le gambit dame, mon grand classique.",openSic:"La sicilienne, ma préférée avec les Noirs.",
+gr:"Excellent|Bon coup|Imprécision|Erreur|Gaffe",
+theory:"Théorie : {n}",theoryEnd:" (fin de la ligne connue)",offTheory:"Hors théorie : dans {n} on joue {e} ici",rare:"Ouverture rare, hors de mon livre",offBook:"Hors de mon livre d'ouvertures",styleMove:"coup de style (−{d} vs meilleur)",
+gameOver:"partie terminée",yourTurnC:"à toi de jouer",thinkingC:"réfléchit…",waiting:"en attente",styleWord:"style",
+notStarted:"La partie n'a pas encore commencé.",
+mateBot:"Échec et mat. Le bot gagne la partie.",mateYou:"Échec et mat. Vous gagnez la partie !",stalemate:"Pat. La partie est nulle.",insuff:"Matériel insuffisant. La partie est nulle.",threefold:"Triple répétition. La partie est nulle.",fifty:"Règle des 50 coups. La partie est nulle.",
+botThinking:"Fat Dog 2 réfléchit…",checkPre:"Échec. ",yourTurnS:"À vous de jouer.",searching:"Je cherche le meilleur coup…",waitFirst:"Le bot attend le premier coup.",undone:"Coup repris. À vous de rejouer.",
+slc:"Agressivité|Prudence|Pièges|Positionnel|Finales|Sacrifices",slL:"Attaque|Prudence|Pièges|Positionnel|Finales|Sacrifices",
+statsFixed:"Stats fixes : ce style reproduit le joueur et ne peut pas être modifié.",sliderHint:"Déplace les curseurs pour modifier son style de jeu.",resetStats:"Réinitialiser les stats",eloPeak:"Elo estimé (pic) : {e} · Ouvertures : {f}",atLevel:"Jouer à son niveau ({e})",freeEloV:"Elo libre : {e}",elomod:"Débutant|Club|Maître|Super grand maître|Maximum",customN:"Style perso",customD:"Ton propre style, réglé avec les curseurs."},
+en:{tabPlay:"Game",tabPick:"Setup",yourColor:"Your color",white:"White",black:"Black",random:"Random",eloLevel:"Level (Elo)",styleOf:"Fat Dog 2's style",legendStyle:"A great player's style",createStyle:"Create my style",useMyStyle:"Use my style",playVs:"Play against Fat Dog 2",evalTitle:"Evaluation from White's side",boardLbl:"Chessboard",botTook:"Fat Dog 2 captured",youTook:"You captured",you:"You",undo:"Undo",replay:"New game",flip:"Flip",botSays:"Fat Dog 2 says",evalShort:"Eval.",moveNotes:"Move commentary",moves:"Moves",promoLbl:"Promotion",promoAria:"Choose the promotion piece",notesEmpty:"Play a move: I'll say whether it's theory and whether it's good.",
+pn:{p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen"},
+open1:"{n}! My playground.",open2:"{n}: I know it by heart.",open3:"We're going with {n}. Hold on tight.",openQGD:"The Queen's Gambit, my great classic.",openSic:"The Sicilian, my favorite with Black.",
+gr:"Excellent|Good move|Inaccuracy|Mistake|Blunder",
+theory:"Theory: {n}",theoryEnd:" (end of the known line)",offTheory:"Out of theory: in {n} the move here is {e}",rare:"Rare opening, outside my book",offBook:"Outside my opening book",styleMove:"style move (−{d} vs best)",
+gameOver:"game over",yourTurnC:"your move",thinkingC:"thinking…",waiting:"waiting",styleWord:"style",
+notStarted:"The game hasn't started yet.",
+mateBot:"Checkmate. The bot wins the game.",mateYou:"Checkmate. You win the game!",stalemate:"Stalemate. The game is drawn.",insuff:"Insufficient material. The game is drawn.",threefold:"Threefold repetition. The game is drawn.",fifty:"50-move rule. The game is drawn.",
+botThinking:"Fat Dog 2 is thinking…",checkPre:"Check. ",yourTurnS:"Your move.",searching:"Looking for the best move…",waitFirst:"The bot is waiting for the first move.",undone:"Move taken back. Your move.",
+slc:"Aggression|Caution|Traps|Positional|Endgames|Sacrifices",slL:"Attack|Caution|Traps|Positional|Endgames|Sacrifices",
+statsFixed:"Fixed stats: this style reproduces the player and can't be changed.",sliderHint:"Move the sliders to change its playing style.",resetStats:"Reset stats",eloPeak:"Estimated Elo (peak): {e} · Openings: {f}",atLevel:"Play at his level ({e})",freeEloV:"Free Elo: {e}",elomod:"Beginner|Club|Master|Super grandmaster|Maximum",customN:"Custom style",customD:"Your own style, set with the sliders."},
+es:{tabPlay:"Partida",tabPick:"Opciones",yourColor:"Tu color",white:"Blancas",black:"Negras",random:"Aleatorio",eloLevel:"Nivel (Elo)",styleOf:"Estilo de Fat Dog 2",legendStyle:"Estilo de un gran jugador",createStyle:"Crear mi estilo",useMyStyle:"Usar mi estilo",playVs:"Jugar contra Fat Dog 2",evalTitle:"Evaluación desde las Blancas",boardLbl:"Tablero",botTook:"Fat Dog 2 ha capturado",youTook:"Has capturado",you:"Tú",undo:"Deshacer",replay:"Nueva partida",flip:"Girar",botSays:"Fat Dog 2 dice",evalShort:"Eval.",moveNotes:"Comentario de jugadas",moves:"Jugadas",promoLbl:"Promoción",promoAria:"Elige la pieza de promoción",notesEmpty:"Haz una jugada: te diré si es teoría y si es buena.",
+pn:{p:"peón",n:"caballo",b:"alfil",r:"torre",q:"dama"},
+open1:"¡{n}! Mi terreno de juego.",open2:"{n}: me lo sé de memoria.",open3:"Vamos con {n}. Agárrate.",openQGD:"El gambito de dama, mi gran clásico.",openSic:"La siciliana, mi favorita con Negras.",
+gr:"Excelente|Buena jugada|Imprecisión|Error|Pifia",
+theory:"Teoría: {n}",theoryEnd:" (fin de la línea conocida)",offTheory:"Fuera de teoría: en {n} aquí se juega {e}",rare:"Apertura rara, fuera de mi libro",offBook:"Fuera de mi libro de aperturas",styleMove:"jugada de estilo (−{d} vs mejor)",
+gameOver:"partida terminada",yourTurnC:"te toca",thinkingC:"pensando…",waiting:"en espera",styleWord:"estilo",
+notStarted:"La partida aún no ha empezado.",
+mateBot:"Jaque mate. El bot gana la partida.",mateYou:"Jaque mate. ¡Ganas la partida!",stalemate:"Rey ahogado. La partida es tablas.",insuff:"Material insuficiente. La partida es tablas.",threefold:"Triple repetición. La partida es tablas.",fifty:"Regla de los 50 movimientos. La partida es tablas.",
+botThinking:"Fat Dog 2 está pensando…",checkPre:"Jaque. ",yourTurnS:"Te toca jugar.",searching:"Buscando la mejor jugada…",waitFirst:"El bot espera la primera jugada.",undone:"Jugada retirada. Te toca de nuevo.",
+slc:"Agresividad|Prudencia|Trampas|Posicional|Finales|Sacrificios",slL:"Ataque|Prudencia|Trampas|Posicional|Finales|Sacrificios",
+statsFixed:"Estadísticas fijas: este estilo reproduce al jugador y no se puede modificar.",sliderHint:"Mueve los controles para cambiar su estilo de juego.",resetStats:"Restablecer estadísticas",eloPeak:"Elo estimado (pico): {e} · Aperturas: {f}",atLevel:"Jugar a su nivel ({e})",freeEloV:"Elo libre: {e}",elomod:"Principiante|Club|Maestro|Supergran maestro|Máximo",customN:"Estilo propio",customD:"Tu propio estilo, ajustado con los controles."}
+};
+function tt(k,a){var s=(I18N[LANG]&&I18N[LANG][k])||I18N.en[k]||I18N.fr[k]||k; if(a) for(var i in a) s=s.replace('{'+i+'}',a[i]); return s;}
+var BANT={
+en:{SAY:{mate:["Checkmate. Game over, thanks for playing."],promo:["Promotion: the race is over."],bait:["I'm leaving a piece hanging... go on, take it, I'm watching.","Bait is set: take it and you'll regret it."],sac:["A little sacrifice: it works, I can feel it. Pieces are made to be played.","I'm giving up material for the initiative. Everybody shakes."],check:["Check! The king has no time to breathe.","Check, to keep the lead. You must answer."],castle:["Castling. The king is safe, now we can attack in peace."],threat:["I'm threatening your heavy piece: the tempo is mine.","This is an attack, you must react right now."],capture:["I take. A piece left lying around gets picked up.","Direct capture, nothing left on the table."],simplify:["I trade to simplify: advantage in the pocket, no need to complicate."],pawnpush:["Pawn push toward your king: opening the lines."],develop:["Out comes a piece right away, no time to waste."],center:["I take the center, that's where it's decided."],quiet:["Simple, solid move, I keep the initiative.","Quiet... too quiet, no?"]},
+MSG:{trem:["Ouch, my king is trembling... but I'm holding!","Check? My king trembles, not me."],cap:["You take my {p}? Watch what comes next.","My {p}! You'll pay for that."],taunt:["Hmm, interesting move.","You play well, but not well enough.","You make me smile."],idle:["So, asleep? Your move.","The clock is ticking, champ."],start:["Fat Dog 2 is in the house. Ready to lose?","Welcome. Around here, we bite."],win:["Checkmate. Fat Dog 2 wins!"],lose:["Mate... well played, you got me. Rematch?"],draw:["A draw. I respect you. A little."]},
+STYSAY:{poly:["I play everything, but my favorites are the best ones.","Queen's Gambit, Sicilian: I stay faithful to my classics."],timide:["I take no risks, sorry.","Easy... my king comes first."],escroc:["A little trap never hurt anyone.","Did you see the trap? Not yet?"],posi:["Pawn structure is everything.","Patience: the weak square will fall."],hyper:["I give up the center and control it from afar.","Fianchetto: the bishop sees everything."],fin:["Let's trade pieces... the endgame is mine.","Fewer pieces, more precision."],aggr:["Attack, always!","Defend? Not for me."],morphy:["Development first, like Morphy.","Open the lines, the pieces will do the rest."],lasker:["I pick the move that makes you uncomfortable.","Psychology wins games."],capa:["Simple, clear, efficient.","I simplify, the endgame does the rest."],tal:["A sacrifice? Of course!","I want chaos, not safety."],fischer:["The best move is e4. And then the next.","I want to win, not draw."],karpov:["I'm suffocating you slowly.","Square by square, your space disappears."]},
+QUIPS:["Fat Dog 2 never sleeps.","Are you sure about that move?","I play fast, but I see everything.","Think carefully, I miss nothing.","Every move counts, you know it."]},
+es:{SAY:{mate:["Jaque mate. Fin de la partida, gracias por jugar."],promo:["Promoción: la carrera ha terminado."],bait:["Dejo una pieza colgada... tómala, te estoy mirando.","Cebo puesto: si la tomas, lo vas a lamentar."],sac:["Un pequeño sacrificio: funciona, lo siento. Las piezas están para jugar.","Cedo material por la iniciativa. Eso hace temblar a todos."],check:["¡Jaque! El rey no tiene tiempo de respirar.","Jaque para mantener la iniciativa, debes responder."],castle:["Enroque. El rey está a salvo, ahora atacamos tranquilos."],threat:["Amenazo tu pieza pesada: el tempo es mío.","Esto ataca, tienes que reaccionar ya."],capture:["Capturo. Una pieza suelta se recoge.","Captura directa, no dejo nada sobre la mesa."],simplify:["Cambio para simplificar: ventaja en el bolsillo, no hace falta complicar."],pawnpush:["Avance de peón hacia tu rey: abrimos líneas."],develop:["Saco una pieza enseguida, sin perder tiempo."],center:["Tomo el centro, ahí se decide todo."],quiet:["Jugada simple y sólida, mantengo la iniciativa.","Tranquilo... demasiado tranquilo, ¿no?"]},
+MSG:{trem:["¡Ay, mi rey tiembla... pero aguanto!","¿Jaque? Mi rey tiembla, yo no."],cap:["¿Te llevas mi {p}? Mira lo que viene.","¡Mi {p}! Lo vas a pagar."],taunt:["Mmm, jugada interesante.","Juegas bien, pero no lo bastante.","Me haces sonreír."],idle:["¿Qué, durmiendo? Te toca.","El reloj corre, campeón."],start:["Fat Dog 2 está en la casa. ¿Listo para perder?","Bienvenido. Aquí se muerde."],win:["Jaque mate. ¡Fat Dog 2 gana!"],lose:["Mate... bien jugado, me has ganado. ¿Revancha?"],draw:["Tablas. Te respeto. Un poco."]},
+STYSAY:{poly:["Juego de todo, pero mis favoritas son las mejores.","Gambito de dama, siciliana: fiel a mis clásicos."],timide:["No corro ningún riesgo, lo siento.","Con calma... primero mi rey."],escroc:["Una trampita no le hace mal a nadie.","¿Viste la trampa? ¿Todavía no?"],posi:["La estructura de peones lo es todo.","Paciencia: la casilla débil caerá."],hyper:["Dejo el centro y lo controlo de lejos.","Fianchetto: el alfil lo ve todo."],fin:["Cambiemos piezas... el final es mío.","Menos piezas, más precisión."],aggr:["¡Al ataque, siempre!","¿Defender? Yo no."],morphy:["Primero el desarrollo, como Morphy.","Abre las líneas, las piezas harán el resto."],lasker:["Elijo la jugada que te incomoda.","La psicología gana partidas."],capa:["Simple, claro, eficaz.","Simplifico, el final hará el resto."],tal:["¿Un sacrificio? ¡Claro!","Quiero caos, no seguridad."],fischer:["La mejor jugada es e4. Y luego la siguiente.","Quiero ganar, no hacer tablas."],karpov:["Te ahogo lentamente.","Casilla a casilla, tu espacio desaparece."]},
+QUIPS:["Fat Dog 2 nunca duerme.","¿Seguro de esa jugada?","Juego rápido, pero lo veo todo.","Piénsalo bien, no se me escapa nada.","Cada jugada cuenta, lo sabes."]}
+};
+var STYT={
+en:{poly:["Versatile","Plays anything, but favors the Queen's Gambit with White and the Sicilian with Black. His king trembles when in check."],timide:["Timid","Cautious, protects his king and avoids any risk."],escroc:["Trickster","Sets traps and baits on every move."],posi:["Positional","Pawn structure, weak squares, well-placed pieces."],hyper:["Hypermodern","Leaves the center and controls it from afar, with fianchettoed bishops."],fin:["Endgames","Trades pieces to win the endgame."],aggr:["Aggressive","Attacks, checks, sacrifices and pawn pushes toward your king."],morphy:["Morphy","Fast development, open lines, brilliant combinations.","Evans Gambit, Italian Game, King's Gambit"],lasker:["Lasker","Psychological: picks the move that makes you uncomfortable.","Ruy Lopez, Queen's Gambit Declined, Scotch"],capa:["Capablanca","Simple and clear, simplifies into the endgame.","Queen's Gambit Declined, Ruy Lopez, Caro-Kann"],tal:["Tal","Sacrifices and complications: the Magician from Riga.","Najdorf, Dragon, King's Gambit"],fischer:["Fischer","Precise and direct: always the best move.","e4, Ruy Lopez, Najdorf, King's Indian"],karpov:["Karpov","Slowly suffocates you, square after square.","Caro-Kann, Ruy Lopez, Queen's Gambit Declined"]},
+es:{poly:["Polivalente","Juega de todo, pero favorece el gambito de dama con Blancas y la siciliana con Negras. Su rey tiembla cuando recibe jaque."],timide:["Tímido","Prudente, protege a su rey y evita cualquier riesgo."],escroc:["Tramposo","Pone trampas y cebos en cada jugada."],posi:["Posicional","Estructura de peones, casillas débiles, piezas bien colocadas."],hyper:["Hipermoderno","Deja el centro y lo controla de lejos, con alfiles fianchettados."],fin:["Finales","Cambia piezas para ganar en el final."],aggr:["Agresivo","Ataque, jaques, sacrificios y avances de peones hacia tu rey."],morphy:["Morphy","Desarrollo rápido, líneas abiertas, combinaciones brillantes.","gambito Evans, partida italiana, gambito de rey"],lasker:["Lasker","Psicológico: elige la jugada que te incomoda.","española, gambito de dama rehusado, escocesa"],capa:["Capablanca","Simple y claro, simplifica hacia el final.","gambito de dama rehusado, española, Caro-Kann"],tal:["Tal","Sacrificios y complicaciones: el mago de Riga.","Najdorf, Dragón, gambito de rey"],fischer:["Fischer","Preciso y directo: siempre la mejor jugada.","e4, española, Najdorf, India de rey"],karpov:["Karpov","Te asfixia lentamente, casilla tras casilla.","Caro-Kann, española, gambito de dama rehusado"]}
+};
+var BNAMES={en:{evans:"Evans Gambit",foie:"Fried Liver Attack",danois:"Danish Gambit",roi:"King's Gambit",scotchg:"Scotch Gambit",ital:"Italian Game",deux:"Two Knights Defense",morra:"Smith-Morra Gambit",najd:"Sicilian Najdorf",scand:"Scandinavian Defense",ckadv:"Caro-Kann, Advance Variation",bdg:"Blackmar-Diemer Gambit",englund:"Englund Gambit",albin:"Albin Countergambit",budapest:"Budapest Gambit",qgd:"Queen's Gambit Declined",qga:"Queen's Gambit Accepted",slav:"Queen's Gambit, Slav Defense",tarr:"Queen's Gambit, Tarrasch",qgex:"Queen's Gambit, Exchange Variation",nimzo:"Nimzo-Indian Defense",kid:"King's Indian Defense",grun:"Grünfeld Defense",benoni:"Benoni",london:"London System",qid:"Queen's Indian Defense",catalan:"Catalan Opening",reti:"Réti Opening",eng:"English Opening",engc:"Symmetrical English",kia:"King's Indian Attack",ruy:"Ruy Lopez",berlin:"Ruy Lopez, Berlin Wall",ruyx:"Ruy Lopez, Exchange Variation",petroff:"Petroff Defense",phil:"Philidor Defense",scotch:"Scotch Game",legal:"Légal's Trap",dragon:"Sicilian Dragon",sves:"Sicilian Sveshnikov",taim:"Sicilian Taimanov",alap:"Sicilian Alapin",sicc:"Closed Sicilian",caro:"Caro-Kann Defense",fr:"French Defense",pirc:"Pirc Defense",alek:"Alekhine's Defense"}};
+BNAMES.es=BNAMES.en;
+var VAL={p:100,n:320,b:330,r:500,q:900,k:0};
+var $=function(id){return document.getElementById(id)};
+if(typeof Chess==='undefined'){
+  $('status').textContent='La bibliothèque chess.js n\'a pas pu se charger. Rechargez la page.';
+  return;
+}
+
+function pieceSVG(t,c){
+  return '<svg class="pcs '+c+'" viewBox="0 0 45 45" aria-hidden="true"><use href="#'+t+'-s" class="ol"/><use href="#'+t+'-s" class="fl"/><use href="#'+t+'-d" class="dt"/></svg>';
+}
+
+var game=new Chess();
+var player='w', chosen='w', flip=false;
+var sel=null, legal=[], lastMove=null;
+var thinking=false, token=0, over=false;
+var worker=null, queue=Promise.resolve(), engineName='moteur interne (minimax)';
+var pendingPromo=null;
+
+/* ---------- Moteur Stockfish dans un worker ---------- */
+function makeEngine(){
+  return new Promise(function(res){
+    try{
+      var code="importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');";
+      var blob=new Blob([code],{type:'application/javascript'});
+      var w=new Worker(URL.createObjectURL(blob));
+      var ready=false;
+      var timer=setTimeout(function(){ if(!ready){ try{w.terminate()}catch(e){} res(null);} },12000);
+      w.onerror=function(){ if(!ready){ clearTimeout(timer); res(null);} else { worker=null; engineName='moteur interne (minimax)'; $('engineState').textContent=engineName; } };
+      w.onmessage=function(e){
+        var t=typeof e.data==='string'?e.data:'';
+        if(t==='uciok'){
+          w.postMessage('setoption name MultiPV value 3'); w.postMessage('setoption name Hash value 64');
+          w.postMessage('setoption name Skill Level value 20');
+          w.postMessage('isready');
+        } else if(t==='readyok' && !ready){ ready=true; clearTimeout(timer); res(w); }
+      };
+      w.postMessage('uci');
+    }catch(err){ res(null); }
+  });
+}
+function sfAnalyze(w,fen,ms){
+  return new Promise(function(res){
+    var best={};
+    var timeout=setTimeout(finish,ms+7000);
+    function finish(){ w.removeEventListener('message',h); clearTimeout(timeout);
+      res(Object.keys(best).map(function(k){return best[k]}).sort(function(a,b){return b.cp-a.cp})); }
+    function h(e){
+      var t=e.data; if(typeof t!=='string') return;
+      if(t.indexOf('info')===0 && t.indexOf(' pv ')>-1 && t.indexOf('score')>-1){
+        if(t.indexOf('lowerbound')>-1||t.indexOf('upperbound')>-1) return;
+        var mp=/multipv (\d+)/.exec(t), dp=/depth (\d+)/.exec(t), sc=/score (cp|mate) (-?\d+)/.exec(t), pv=/ pv (\S+)/.exec(t);
+        if(!sc||!pv) return;
+        var k=mp?+mp[1]:1, d=dp?+dp[1]:0, cp=+sc[2];
+        if(sc[1]==='mate') cp=(cp>0?1:-1)*(10000-Math.abs(cp)*50);
+        if(!best[k]||d>=best[k].depth) best[k]={uci:pv[1],cp:cp,depth:d};
+      } else if(t.indexOf('bestmove')===0){ finish(); }
+    }
+    w.addEventListener('message',h);
+    w.postMessage('position fen '+fen);
+    w.postMessage('go movetime '+ms);
+  });
+}
+
+/* ---------- Moteur interne de secours : minimax alpha-bêta ---------- */
+function evalInternal(g){
+  var s=0, b=g.board();
+  for(var r=0;r<8;r++) for(var c=0;c<8;c++){
+    var p=b[r][c]; if(!p) continue;
+    var v=VAL[p.type], sign=p.color==='w'?1:-1;
+    var rankFromOwn=p.color==='w'?7-r:r;
+    var cen=3.5-Math.abs(c-3.5), cenR=3.5-Math.abs(r-3.5);
+    var bonus=0;
+    if(p.type==='p') bonus=rankFromOwn*6+cen*2;
+    else if(p.type==='n'||p.type==='b') bonus=(cen+cenR)*4;
+    else if(p.type==='q') bonus=(cen+cenR);
+    s+=sign*(v+bonus);
+  }
+  return s;
+}
+function negamax(g,depth,alpha,beta){
+  if(depth===0){ var e=evalInternal(g); return g.turn()==='w'?e:-e; }
+  var ms=g.moves({verbose:true});
+  if(!ms.length) return g.in_check()?-30000-depth:0;
+  ms.sort(function(a,b){return (b.captured?VAL[b.captured]*10-VAL[b.piece]:0)-(a.captured?VAL[a.captured]*10-VAL[a.piece]:0)});
+  var best=-Infinity;
+  for(var i=0;i<ms.length;i++){
+    g.move(ms[i]); var sc=-negamax(g,depth-1,-beta,-alpha); g.undo();
+    if(sc>best) best=sc; if(best>alpha) alpha=best; if(alpha>=beta) break;
+  }
+  return best;
+}
+function internalAnalyze(g){
+  var ms=g.moves({verbose:true}), out=[];
+  for(var i=0;i<ms.length;i++){
+    g.move(ms[i]); var sc=-negamax(g,2,-Infinity,Infinity); g.undo();
+    out.push({uci:ms[i].from+ms[i].to+(ms[i].promotion||''),cp:sc,depth:3});
+  }
+  out.sort(function(a,b){return b.cp-a.cp});
+  return out.slice(0,4);
+}
+
+/* ---------- Style de jeu ---------- */
+function material(g,color){
+  var s=0, b=g.board();
+  for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=b[r][c]; if(p) s+=(p.color===color?1:-1)*VAL[p.type]; }
+  return s;
+}
+function findKing(g,color){
+  var b=g.board();
+  for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=b[r][c]; if(p&&p.type==='k'&&p.color===color) return FILES[c]+(8-r); }
+  return null;
+}
+function evaluateCandidate0(m,cp,doBait){
+  var me=game.turn(), opp=me==='w'?'b':'w', ply=game.history().length;
+  var before=material(game,me);
+  var base0=(me==='w'?1:-1)*evalInternal(game);
+  game.move({from:m.from,to:m.to,promotion:m.promotion});
+  var s=0, tags=[];
+  function add(v,t){ s+=v; if(t&&tags.indexOf(t)<0) tags.push(t); }
+  if(m.san.indexOf('#')>-1) add(1000,'mate');
+  else if(m.san.indexOf('+')>-1) add(35,'check');
+  if(m.captured){
+    add(18+Math.max(0,(VAL[m.captured]-VAL[m.piece])/12),'capture');
+    if(cp>200 && VAL[m.captured]>=VAL[m.piece]-20) add(10,'simplify');
+  }
+  if(m.promotion) add(60,'promo');
+  if(m.flags.indexOf('k')>-1||m.flags.indexOf('q')>-1) add(26,'castle');
+  var home=me==='w'?'1':'8';
+  if((m.piece==='n'||m.piece==='b') && m.from.charAt(1)===home && ply<24) add(16,'develop');
+  if(['d4','e4','d5','e5'].indexOf(m.to)>-1) add(7,'center');
+  if(m.piece==='n' && (m.to.charAt(0)==='a'||m.to.charAt(0)==='h')) add(-8);
+  if(m.piece==='p'){
+    var ek=findKing(game,opp);
+    if(ek && Math.abs(FILES.indexOf(m.to.charAt(0))-FILES.indexOf(ek.charAt(0)))<=1 && ply>=8) add(8,'pawnpush');
+  }
+  if(m.piece==='k' && m.flags.indexOf('k')<0 && m.flags.indexOf('q')<0 && ply<30) add(-22);
+  if(m.piece==='b' && (m.to==='c4'||m.to==='c5') && ply<12) add(8);
+  if(!game.in_check()){
+    try{
+      var f=game.fen().split(' '); f[1]=me; f[3]='-';
+      var ng=new Chess(f.join(' ')), th=0, mv=ng.moves({verbose:true});
+      for(var i=0;i<mv.length;i++){
+        var t=mv[i];
+        if(t.from!==m.to||!t.captured) continue;
+        if(VAL[t.captured]>=500 && VAL[t.captured]>VAL[t.piece]) th=Math.max(th,28);
+        else if(VAL[t.captured]>=320 && t.piece==='p') th=Math.max(th,14);
+      }
+      if(th) add(th,'threat');
+    }catch(e){}
+  }
+  var replies=game.moves({verbose:true}), worst=0;
+  if(replies.length){
+    worst=Infinity;
+    for(var j=0;j<replies.length;j++){
+      game.move(replies[j]); var d=material(game,me)-before; game.undo();
+      if(d<worst) worst=d;
+    }
+  }
+  if(doBait && ply>=6 && !game.in_check()){
+    var greedy=replies.filter(function(x){return x.captured&&VAL[x.captured]>=300}).sort(function(a,b){return VAL[b.captured]-VAL[a.captured]}).slice(0,2);
+    if(greedy.length){
+      var okBait=true;
+      for(var gi=0;gi<greedy.length&&okBait;gi++){
+        game.move(greedy[gi]);
+        var vb=negamax(game,2,-Infinity,Infinity);
+        game.undo();
+        if(vb<base0+60) okBait=false;
+      }
+      if(okBait) add(32,'bait');
+    }
+  }
+  if(game.in_check() && replies.length>0 && replies.length<=3) add(12,'squeeze');
+  if(game.in_draw() && !game.in_checkmate()) add(-150,'draw');
+  s+=Math.max(-300,Math.min(150,worst))*0.35;
+  if(worst<=-250 && m.san.indexOf('#')<0) add(30,'sac');
+  game.undo();
+  return {m:m,cp:cp,style:s,tags:tags};
+}
+var SAY={
+  mate:['Mat. Fin de la partie, merci pour le jeu.'],
+  promo:['Promotion : la course est terminée.'],
+  bait:['Je laisse traîner une pièce… prends-la, vas-y, je te regarde.','Appât posé : si tu prends, tu vas le regretter.'],
+  sac:['Un petit sacrifice : ça passe, je le sens. Les pièces sont faites pour jouer.','Je lâche du matériel pour l\'initiative. Ça fait trembler tout le monde.'],
+  check:['Échec ! Le roi n\'a pas le temps de souffler.','Échec pour garder la main, tu dois répondre.'],
+  castle:['Roque. Le roi est à l\'abri, maintenant on peut attaquer tranquille.'],
+  threat:['Je menace ta pièce lourde : le tempo est pour moi.','Ça attaque, tu dois réagir tout de suite.'],
+  capture:['Je prends. Une pièce qui traîne, on la ramasse.','Capture directe, on ne laisse rien sur la table.'],
+  simplify:['J\'échange pour simplifier : avantage en poche, pas besoin de compliquer.'],
+  pawnpush:['Poussée de pion vers ton roi : on ouvre les lignes.'],
+  develop:['Je sors une pièce tout de suite, pas de temps à perdre.'],
+  center:['Je prends le centre, c\'est là que ça se joue.'],
+  book:['Ouverture directe : le centre d\'abord.'],
+  quiet:['Coup simple et solide, je garde l\'initiative.']
+};
+var PRIORITY=['mate','promo','sac','bait','check','castle','threat','capture','simplify','pawnpush','develop','center'];
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+var QUIPS=['Allez, joue vite, ici la pendule ne s\'arrête pas.','Tu réfléchis trop, on n\'est pas en tournoi.','Un billet de cinq sur la prochaine ?','Ici on gagne par l\'attaque, pas en finale.','Je joue vite, mais je vois tout.'];
+function sayFor(tags){
+  var s=pick(SAY.quiet);
+  for(var i=0;i<PRIORITY.length;i++) if(tags.indexOf(PRIORITY[i])>-1){ s=pick(SAY[PRIORITY[i]]); break; }
+  if(tags.indexOf('mate')<0){var rr=Math.random(); if(rr<.3) s+=' '+pick(STYSAY[sk()]); else if(rr<.5) s+=' '+pick(QUIPS);}
+  return s;
+}
+function fmtCp(cp){
+  if(Math.abs(cp)>=9000) return (cp>0?'+':'-')+'M';
+  var v=(cp/100).toFixed(1); return (cp>0?'+':'')+v;
+}
+function chooseMove(lines){
+  var legalMoves=game.moves({verbose:true}), cands=[];
+  lines.forEach(function(l){
+    var from=l.uci.slice(0,2), to=l.uci.slice(2,4), pr=l.uci.charAt(4)||undefined;
+    var m=legalMoves.filter(function(x){return x.from===from&&x.to===to&&(x.promotion||undefined)===pr})[0];
+    if(m) cands.push({m:m,cp:l.cp});
+  });
+  if(!cands.length){ var m0=legalMoves[Math.floor(Math.random()*legalMoves.length)]; return {m:m0,tags:[],all:[],chosen:0}; }
+  var best=cands[0].cp;
+  var tol=best>300?45:(best<-150?25:50); tol=Math.round(tol*curStyle().tol*curElo().tol);
+  var evaluated=cands.map(function(c){return evaluateCandidate(c.m,c.cp,c.cp>=best-tol)});
+  if(best>=9000||cands.length===1) return {m:evaluated[0].m,tags:evaluated[0].tags,all:evaluated,chosen:0,best:best};
+  var chosenIdx=0, chosenScore=-Infinity;
+  evaluated.forEach(function(c,i){
+    if(c.cp<best-tol) return;
+    var total=c.cp*0.5+c.style+Math.random()*8;
+    if(total>chosenScore){chosenScore=total;chosenIdx=i;}
+  });
+  return {m:evaluated[chosenIdx].m,tags:evaluated[chosenIdx].tags,all:evaluated,chosen:chosenIdx,best:best};
+}
+
+/* ===== Fat Dog 2 : niveaux, styles, messages ===== */
+function eloP(e){ var t=Math.max(0,Math.min(1,(e-800)/2820)); return {skill:Math.min(20,Math.round(t*28)),ms:Math.round(100+t*t*6000),tol:1.6*Math.pow(1-t,1.5)+.08,mpv:e>=2700?1:(e>=2200?2:3),strong:e>=2600}; }
+var DUB=['foie','danois','roi','bdg','englund','albin','budapest','legal','morra'];
+QUIPS=['Fat Dog 2 ne dort jamais.','Tu es sûr de ce coup ?','Je joue vite, mais je vois tout.','Réfléchis bien, je ne rate rien.','Chaque coup compte, tu le sais.'];
+var lastBotCp=null, pendingNote=null, lastNote=null;
+var ELOK=2300, curKey='poly', custom=null, endSaid=0, lastSay=Date.now();
+function curElo(){return eloP(ELOK)}
+function curStyle(){return curKey==='custom'&&custom?custom:STY[curKey]}
+function sk(){return curKey==='custom'?'poly':curKey}
+function WB(t){var o={};t.split(' ').forEach(function(k){o[k]=1});return o}
+var STY={
+ poly:{n:'Polyvalent',d:'Il joue de tout, mais ses favorites sont le gambit dame avec les Blancs et la sicilienne avec les Noirs. Son roi tremble quand il prend échec.',m:{},tol:1,bk:{qgd:8,qga:6,slav:4,tarr:3,qgex:3,najd:7,dragon:6,sves:6,taim:4,alap:2,sicc:2,morra:2},bkd:.4},
+ timide:{n:'Timide',d:'Prudent, il protège son roi et évite tout risque.',m:{castle:2,check:.3,sac:0,bait:0,threat:.6,pawnpush:.2,develop:1.5,simplify:2},tol:.55,bk:WB('london qgd slav caro petroff phil qgex ital'),bkd:0},
+ escroc:{n:'Escroc',d:'Il pose des pièges et des appâts à chaque coup.',m:{bait:2.6,sac:1.5,threat:1.5,check:.8},tol:1.5,bk:WB('foie danois roi scotchg morra scand bdg englund albin budapest legal evans'),bkd:0},
+ posi:{n:'Positionnel',d:'Structure de pions, cases faibles, pièces bien placées.',m:{develop:2,center:2.5,castle:1.5,check:.4,sac:.2,bait:.3,pawnpush:.5},tol:.8,bk:WB('eng engc qgd qgex catalan reti qid nimzo slav caro ruy kia'),bkd:0},
+ hyper:{n:'Hypermoderne',d:'Il laisse le centre et le contrôle de loin, avec des fous fianchettés.',m:{center:-1,develop:1.2,check:.6,bait:.8,sac:.6},tol:1,fian:1,bk:WB('reti kia kid grun benoni nimzo qid alek pirc eng engc catalan'),bkd:0},
+ fin:{n:'Finales',d:'Il échange les pièces pour gagner en finale.',m:{simplify:4,capture:1.6,sac:.2,bait:.2,check:.5,pawnpush:.5},tol:.7,endg:1,bk:WB('berlin ruyx qgex petroff catalan caro slav phil london'),bkd:0},
+ aggr:{n:'Agressif',d:'Attaque, échecs, sacrifices et poussées de pions vers ton roi.',m:{check:2,sac:2.2,threat:2,pawnpush:2.5,bait:1.3,castle:.8,simplify:.2},tol:1.7,bk:WB('evans foie danois roi scotchg najd dragon sves morra bdg ital'),bkd:0},
+ morphy:{n:'Morphy',d:'Développement rapide, lignes ouvertes, combinaisons brillantes.',m:{develop:2.5,center:2,castle:1.5,sac:1.8,check:1.5},tol:1.2,bk:WB('evans ital deux roi danois scotchg phil legal ruy'),bkd:0},
+ lasker:{n:'Lasker',d:'Psychologique : il choisit le coup qui met mal à l\'aise.',m:{bait:2,sac:.8,threat:1.5},tol:1.4,bk:WB('qgex ruy ruyx scotch petroff qgd phil ital'),bkd:0},
+ capa:{n:'Capablanca',d:'Simple, clair, il simplifie vers la finale.',m:{simplify:3,develop:1.5,castle:1.3,sac:.1,bait:.1,check:.3,pawnpush:.4},tol:.6,endg:1,bk:WB('qgd qgex ruy petroff caro catalan nimzo qid slav reti'),bkd:0},
+ tal:{n:'Tal',d:'Sacrifices et complications : le magicien de Riga.',m:{sac:3,check:2,bait:2,threat:2,pawnpush:2,simplify:.1},tol:2.2,bk:WB('najd dragon sves roi evans benoni morra grun foie bdg scotchg danois'),bkd:0},
+ fischer:{n:'Fischer',d:'Précis et direct : toujours le meilleur coup.',m:{center:1.5,develop:1.5,capture:1.3,threat:1.3},tol:.5,bk:WB('ruy najd dragon kid grun nimzo ital alap caro'),bkd:0},
+ karpov:{n:'Karpov',d:'Il t\'étouffe lentement, case après case.',m:{castle:1.5,develop:1.5,center:1.5,simplify:1.5,sac:.2,bait:.2,check:.3,pawnpush:.3},tol:.55,bk:WB('caro ruy qgd qgex qid nimzo eng reti catalan slav petroff'),bkd:0}
+};
+function buildCustom(v){
+  var f=function(x,k){return Math.max(0,1+(x-50)/k)}, ids=[];
+  if(v.ag>55) ids.push('evans foie danois roi scotchg najd dragon sves morra bdg');
+  if(v.tr>55) ids.push('foie danois roi morra scand bdg englund albin budapest legal');
+  if(v.po>55) ids.push('eng engc qgd qgex catalan reti qid nimzo slav kia');
+  if(v.en>55) ids.push('berlin ruyx qgex petroff catalan caro slav');
+  if(v.ca>55) ids.push('london qgd slav caro petroff phil');
+  return {n:tt('customN'),d:tt('customD'),m:{check:f(v.ag,50),threat:f(v.ag,60),pawnpush:f(v.ag,40),sac:f(v.ri,35),bait:f(v.tr,35),castle:f(v.ca,40),develop:f(v.po,60),center:f(v.po,60),simplify:f(v.en,25),capture:f(v.en,80)},tol:.5+v.ri/70,bk:WB(ids.join(' ')),bkd:ids.length?0:.6};
+}
+var TAGV={check:35,capture:25,sac:30,bait:32,threat:20,castle:26,develop:16,center:7,simplify:10,pawnpush:8,squeeze:12};
+function evaluateCandidate(m,cp,doBait){
+  var r=evaluateCandidate0(m,cp,doBait), S=curStyle(), x=0;
+  r.tags.forEach(function(t){ if(S.m[t]!==undefined&&TAGV[t]) x+=(S.m[t]-1)*TAGV[t]; });
+  if(S.fian&&m.piece==='b'&&['g2','b2','g7','b7'].indexOf(m.to)>-1) x+=25;
+  if(S.endg){ var n=0,b=game.board(); for(var i=0;i<8;i++) for(var j=0;j<8;j++){ var p=b[i][j]; if(p&&p.type!=='p'&&p.type!=='k') n++; }
+    if(n<=8&&(m.piece==='k'||m.piece==='p')) x+=12; }
+  r.style+=x; return r;
+}
+var PN=I18N.fr.pn;
+var MORE={
+ bait:['Cette pièce est gratuite… enfin, presque.','Mords à l\'hameçon, je t\'attends.'],
+ sac:['Qui a besoin de matériel quand on a l\'attaque ?','Sacrifice ! Ça, c\'est du spectacle.'],
+ check:['Échec ! Ton roi commence à trembler ?','Échec, et ce n\'est que le début.'],
+ castle:['Roque : mon roi dort tranquille, et le tien ?'],
+ threat:['Tu vois la menace ? Moi je la vois depuis trois coups.','Ta dame va devoir courir.'],
+ capture:['Merci pour le cadeau.','Une pièce de moins pour toi.'],
+ develop:['Une pièce en jeu, une pièce dangereuse.'],
+ center:['Le centre m\'appartient.'],
+ quiet:['Je prépare quelque chose, ne t\'endors pas.','Tranquille… trop tranquille, non ?','Coup tout simple. Ou pas.','Je prends mon temps, toi tu stresses.']
+};
+Object.keys(MORE).forEach(function(k){ SAY[k]=SAY[k].concat(MORE[k]); });
+var MSG={
+ trem:['Aïe, mon roi tremble… mais je tiens !','Échec ? Mon roi tremble, pas moi.','Tu fais trembler mon roi, bien joué.','Mon roi a des sueurs froides.'],
+ cap:['Tu prends mon {p} ? Regarde la suite.','Mon {p} ! Tu vas le payer.','Joli, mon {p} est parti. Ça ne change rien.','Tu as pris mon {p}… tu sais pourquoi je te l\'ai laissé ?'],
+ taunt:['Hmm, intéressant comme coup.','Tu joues bien, mais pas assez.','Tu me fais sourire.','Ah, tu as vu ça ? Pas mal.','Bonne idée, mauvaise exécution.','Je note, je note.'],
+ idle:['Alors, on dort ? C\'est à toi.','Tu réfléchis ? Moi j\'ai déjà ma réponse.','La pendule tourne, champion.','Tu as peur de jouer ?','Besoin d\'aide ? Je plaisante.'],
+ start:['Fat Dog 2 est dans la place. Prêt à perdre ?','Bienvenue. Ici, on mord.','Installe-toi, la partie va être longue… pour toi.'],
+ win:['Échec et mat. Fat Dog 2 gagne !','Mat. Reviens quand tu veux.'],
+ lose:['Mat… bien joué, tu m\'as eu. Revanche ?','Je m\'incline. Rejoue, je me vengerai.'],
+ draw:['Nulle. Je te respecte, un peu.']
+};
+var STYSAY={
+ poly:['Je joue de tout, mais mes favorites sont les meilleures.','Gambit dame, sicilienne : je reste fidèle à mes classiques.','Polyvalent : je m\'adapte à toi.'],
+ timide:['Je ne prends aucun risque, désolé.','Doucement… je protège mon roi d\'abord.','Pas de précipitation, tout est sous contrôle.'],
+ escroc:['Un petit piège ne fait de mal à personne.','Tu as vu le piège ? Pas encore ?','Je joue pour que tu te trompes.'],
+ posi:['La structure de pions, c\'est tout.','Je place mes pièces, le reste suivra.','Patience : la case faible tombera.'],
+ hyper:['Je laisse le centre, je le contrôle de loin.','Fianchetto : le fou voit tout.','Tu occupes le centre ? Je l\'attaquerai.'],
+ fin:['Échangeons les pièces… la finale est à moi.','Dans la finale, chaque tempo compte.','Moins de pièces, plus de précision.'],
+ aggr:['À l\'attaque, toujours !','Je veux ton roi, tout de suite.','Défendre ? Très peu pour moi.'],
+ morphy:['Développement d\'abord, comme Morphy.','Ouvre les lignes, les pièces feront le reste.','Une belle combinaison se prépare.'],
+ lasker:['Je choisis le coup qui te met mal à l\'aise.','La psychologie fait gagner des parties.','Lasker gagnait même les positions perdues.'],
+ capa:['Simple, clair, efficace.','Je simplifie, la finale fera le reste.','Capablanca jouait sans effort. Moi aussi.'],
+ tal:['Un sacrifice ? Évidemment !','Je veux le chaos, pas la sécurité.','Tal aurait sacrifié ici aussi.'],
+ fischer:['Le meilleur coup, c\'est e4. Et ensuite.','Je veux gagner, pas faire nulle.','Fischer ne rate rien.'],
+ karpov:['Je t\'étouffe lentement.','Case après case, ton espace disparaît.','La boa serre un peu plus fort.']
+};
+function botSay(t){
+  lastSay=Date.now(); $('say').textContent=t;
+  var c=$('chat'), d=document.createElement('div'); d.className='msg';
+  var b=document.createElement('b'); b.textContent='Fat Dog 2'; d.appendChild(b); d.appendChild(document.createTextNode(t));
+  c.appendChild(d); while(c.children.length>40) c.removeChild(c.firstChild); c.scrollTop=c.scrollHeight;
+}
+function openMsg(id,n){
+  var t=pick([tt('open1',{n:n}),tt('open2',{n:n}),tt('open3',{n:n})]);
+  if(curKey==='poly'){
+    if(['qgd','qga','slav','tarr','qgex'].indexOf(id)>-1) t+=' '+tt('openQGD');
+    if(['najd','dragon','sves','taim','alap','sicc','morra'].indexOf(id)>-1) t+=' '+tt('openSic');
+  } else t+=' '+pick(STYSAY[sk()]);
+  return t;
+}
+var GR=[[20,'Excellent',0],[60,'Bon coup',1],[120,'Imprécision',2],[300,'Erreur',3],[1e9,'Gaffe',4]];
+function gradeNote(el,L){ var g=GR.filter(function(x){return L<=x[0]})[0], sp=el.children[1]; sp.className='gr g'+g[2]; sp.textContent=g[1]+(L>20?' (−'+(L/100).toFixed(1)+')':''); }
+function theoryInfo(prev,san){
+  var n=prev.length, cont=null, hit=null;
+  BOOK.forEach(function(l){
+    for(var i=0;i<n;i++) if(l.m[i]!==prev[i]) return;
+    if(l.m.length>n){ if(!cont) cont=l; if(l.m[n]===san&&(!hit||l.m.length>hit.m.length)) hit=l; }
+  });
+  if(hit) return {t:1,name:hit.n,end:hit.m.length===n+1};
+  if(cont&&n>0) return {t:0,name:cont.n,exp:cont.m[n]};
+  return null;
+}
+function addNote(r,prev){
+  var c=$('notes'), n=prev.length, th=theoryInfo(prev,r.san), txt='';
+  if(th) txt=th.t?(tt('theory',{n:th.name})+(th.end?tt('theoryEnd'):'')):tt('offTheory',{n:th.name,e:th.exp});
+  else if(n===0) txt=tt('rare');
+  else if(n<16) txt=tt('offBook');
+  var d=document.createElement('div'); d.className='note';
+  d.innerHTML='<b></b><span class="gr"></span><i></i>';
+  d.children[0].textContent=Math.ceil((n+1)/2)+(r.color==='w'?'. ':'… ')+r.san;
+  d.children[2].textContent=txt;
+  if(r.color!==player){ d.children[1].textContent='Fat Dog 2'; d.children[1].className='gr g1'; }
+  c.appendChild(d); c.scrollTop=c.scrollHeight; return d;
+}
+function styleNote(res){
+  if(!lastNote||!res.all||!res.all[res.chosen]||res.best===undefined) return;
+  var d=res.best-res.all[res.chosen].cp, i=lastNote.children[2];
+  if(d>=20) i.textContent+=(i.textContent?' · ':'')+tt('styleMove',{d:(d/100).toFixed(1)});
+}
+function reactPlayer(r){
+  if(game.game_over()) return;
+  if(game.in_check()) botSay(pick(MSG.trem));
+  else if(r.captured) botSay(pick(MSG.cap).replace('{p}',PN[r.captured]));
+  else if(Math.random()<.4) botSay(pick(MSG.taunt));
+}
+setInterval(function(){ if(!over&&!thinking&&game.turn()===player&&game.history().length>0&&Date.now()-lastSay>25000) botSay(pick(MSG.idle)); },5000);
+
+/* ---------- Ouverture rapide ---------- */
+/* Répertoire : gambits et pièges.
+   Chaque ligne est vérifiée au démarrage et coupée au premier coup illégal. */
+var BOOK=[
+  {n:'Gambit Évans',s:'e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4 exd4 O-O'},
+  {n:'Attaque du foie grillé',s:'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7 Kxf7 Qf3+ Ke6 Nc3'},
+  {n:'Gambit danois',s:'e4 e5 d4 exd4 c3 dxc3 Bc4 cxb2 Bxb2'},
+  {n:'Gambit du Roi',s:'e4 e5 f4 exf4 Nf3 g5 h4 g4 Ne5 Nf6 Bc4 d5 exd5 Bd6'},
+  {n:'Gambit Scotch',s:'e4 e5 Nf3 Nc6 d4 exd4 Bc4 Nf6 e5 d5 Bb5 Ne4 Nxd4 Bd7'},
+  {n:'Partie italienne',s:'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Nc3 Nxe4 O-O Nxc3 bxc3 Bxc3 Ba3'},
+  {n:'Deux cavaliers',s:'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6 Nf3 e4 Ne5 Bd6'},
+  {n:'Gambit Smith-Morra',s:'e4 c5 d4 cxd4 c3 dxc3 Nxc3 Nc6 Nf3 d6 Bc4 e6 O-O Nf6 Qe2 Be7 Rd1'},
+  {n:'Sicilienne Najdorf',s:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5 e6 f4 Be7 Qf3 Qc7'},
+  {n:'Scandinave',s:'e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6 Bc4 Bf5 Bd2'},
+  {n:'Caro-Kann, variante d\'avance',s:'e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5 Be3 Nd7'},
+  {n:'Gambit Blackmar-Diemer',s:'d4 d5 e4 dxe4 Nc3 Nf6 f3 exf3 Nxf3 e6 Bd3 Bb4 O-O'},
+  {n:'Gambit Englund',s:'d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4 Qb4+ Nbd2'},
+  {n:'Gambit Albin',s:'d4 d5 c4 e5 dxe5 d4 Nf3 Nc6 g3 Be6 Nbd2 Qd7'},
+  {n:'Gambit Budapest',s:'d4 Nf6 c4 e5 dxe5 Ng4 Bf4 Nc6 Nf3 Bb4+ Nbd2 Qe7'}
+];
+var NEWB=`qgd|Gambit dame refusé|d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7 Rc1 c6
+qga|Gambit dame accepté|d4 d5 c4 dxc4 Nf3 Nf6 e3 e6 Bxc4 c5 O-O a6
+slav|Gambit dame, défense slave|d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3 e6 Bxc4 Bb4
+tarr|Gambit dame, Tarrasch|d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 Nf6 Bg2 Be7 O-O O-O
+qgex|Gambit dame, variante d'échange|d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 Be7 e3 c6 Bd3 Nbd7 Qc2 O-O
+nimzo|Défense Nimzo-indienne|d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3 c5 O-O Nc6
+kid|Défense est-indienne|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6
+grun|Défense Grünfeld|d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7 Nf3 c5
+benoni|Benoni|d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 e4 g6 Nf3 Bg7
+london|Système de Londres|d4 d5 Nf3 Nf6 Bf4 e6 e3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O
+qid|Défense Ouest-indienne|d4 Nf6 c4 e6 Nf3 b6 g3 Ba6 b3 Bb4+ Bd2 Be7 Bg2 c6
+catalan|Catalane|d4 Nf6 c4 e6 g3 d5 Bg2 Be7 Nf3 O-O O-O dxc4 Qc2 a6
+reti|Ouverture Réti|Nf3 d5 c4 e6 g3 Nf6 Bg2 Be7 O-O O-O b3 c5 Bb2 Nc6
+eng|Ouverture anglaise|c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5 Bg2 Nb6 O-O Be7
+engc|Anglaise symétrique|c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 e6 O-O Nge7
+kia|Attaque est-indienne|Nf3 d5 g3 Nf6 Bg2 e6 O-O Be7 d3 O-O Nbd2 c5 e4 Nc6
+ruy|Partie espagnole|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8
+berlin|Espagnole, mur de Berlin|e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5 Qxd8+ Kxd8
+ruyx|Espagnole, variante d'échange|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4 exd4 Nxd4 c5 Nb3 Qxd1 Rxd1 Bg4
+petroff|Défense Petroff|e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3 Nc6 O-O Be7 c4 Nb4
+phil|Défense Philidor|e4 e5 Nf3 d6 d4 Nf6 Nc3 Nbd7 Bc4 Be7 O-O O-O
+scotch|Partie écossaise|e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2 Nd5 c4 Ba6
+legal|Piège de Légal|e4 e5 Nf3 d6 Bc4 Nc6 Nc3 Bg4 h3 Bh5 Nxe5 Bxd1 Bxf7+ Ke7 Nd5#
+dragon|Sicilienne Dragon|e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6
+sves|Sicilienne Sveshnikov|e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5 Ndb5 d6 Bg5 a6 Na3 b5
+taim|Sicilienne Taïmanov|e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nc6 Nc3 Qc7 Be3 a6 Be2 Nf6 O-O Bb4
+alap|Sicilienne Alapine|e4 c5 c3 Nf6 e5 Nd5 d4 cxd4 Nf3 Nc6 cxd4 d6 Bc4 Nb6
+sicc|Sicilienne fermée|e4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 d3 d6 Be3 e6 Qd2 Nd4
+caro|Défense Caro-Kann|e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4 h6 Nf3 Nd7
+fr|Défense française|e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7 Bxe7 Qxe7 f4 O-O Nf3 c5
+pirc|Défense Pirc|e4 d6 d4 Nf6 Nc3 g6 Nf3 Bg7 Be2 O-O O-O c6
+alek|Défense Alekhine|e4 Nf6 e5 Nd5 d4 d6 Nf3 Bg4 Be2 e6 O-O Be7`;
+NEWB.split('\n').forEach(function(x){var p=x.split('|'); BOOK.push({id:p[0],n:p[1],s:p[2]});});
+['evans','foie','danois','roi','scotchg','ital','deux','morra','najd','scand','ckadv','bdg','englund','albin','budapest'].forEach(function(k,i){BOOK[i].id=k;});
+BOOK.forEach(function(l){
+  var g=new Chess(), out=[], toks=l.s.split(' ');
+  for(var i=0;i<toks.length;i++){ var mv=g.move(toks[i]); if(!mv) break; out.push(mv.san); }
+  l.m=out;
+});
+function bookMove(){
+  var h=game.history(), S=curStyle(), pool=[], tot=0, legalM=game.moves({verbose:true});
+  BOOK.forEach(function(l){
+    if(l.m.length<=h.length) return;
+    for(var i=0;i<h.length;i++) if(l.m[i]!==h[i]) return;
+    if(curElo().strong&&DUB.indexOf(l.id)>-1) return;
+    var w=S.bk[l.id]!==undefined?S.bk[l.id]:S.bkd; if(w<=0) return;
+    var m=legalM.filter(function(x){return x.san===l.m[h.length]})[0];
+    if(m){ pool.push({l:l,m:m,w:w}); tot+=w; }
+  });
+  if(!pool.length) return null;
+  var r=Math.random()*tot, c=pool[0];
+  for(var j=0;j<pool.length;j++){ r-=pool[j].w; if(r<=0){ c=pool[j]; break; } }
+  return {m:c.m,name:c.l.n,id:c.l.id};
+}
+
+/* ---------- Affichage ---------- */
+function render(){
+  var b=game.board(), html='', i, r, c;
+  var chkSq=null;
+  if(game.in_check()) chkSq=findKing(game,game.turn());
+  for(r=0;r<8;r++) for(c=0;c<8;c++){
+    var file=flip?7-c:c, rank=flip?7-r:r;
+    var sq=FILES[file]+(8-rank), p=b[rank][file];
+    var dark=((file+(8-rank))%2===1);
+    var cls='sq '+(dark?'d':'l');
+    if(lastMove&&(lastMove.from===sq||lastMove.to===sq)) cls+=' last';
+    if(sel===sq) cls+=' sel';
+    if(chkSq===sq) cls+=game.in_checkmate()?' mate':' chk';
+    var tgt=legal.filter(function(m){return m.to===sq})[0];
+    if(tgt) cls+=(p||tgt.flags.indexOf('e')>-1)?' tk':' mv';
+    html+='<div class="'+cls+'" data-sq="'+sq+'" role="gridcell" aria-label="'+sq+(p?' '+p.color+p.type:'')+'">'+
+      (p?pieceSVG(p.type,p.color):'')+'</div>';
+  }
+  $('board').innerHTML=html;
+  var rk='', fl='';
+  for(i=0;i<8;i++){ rk+='<span>'+(flip?i+1:8-i)+'</span>'; fl+='<span>'+FILES[flip?7-i:i]+'</span>'; }
+  $('ranks').innerHTML=rk; $('files').innerHTML=fl;
+  $('vbar').classList.toggle('flip',flip);
+  renderMoves(); renderCaptured(); renderCards(); updateButtons();
+}
+function renderCards(){
+  var oc=player==='w'?'b':'w';
+  $('av-opp').innerHTML=pieceSVG('n','w');
+  [['top',oc],['bot',player]].forEach(function(x){
+    var pos=x[0], color=x[1], isMe=color===player, turn=game.turn(), txt;
+    $('av-'+pos).className='avatar '+(isMe?'me':'bot');
+    $('av-'+pos).innerHTML=isMe?pieceSVG('k','b'):pieceSVG('n','w');
+    $('nm-'+pos).textContent=isMe?tt('you'):'Fat Dog 2';
+    if(game.game_over()) txt=tt('gameOver');
+    else if(turn===color) txt=isMe?tt('yourTurnC'):tt('thinkingC');
+    else txt=isMe?tt('waiting'):tt('styleWord')+' '+curStyle().n;
+    $('sb-'+pos).textContent=(color==='w'?tt('white'):tt('black'))+' · '+txt;
+  });
+}
+function renderMoves(){
+  var h=game.history(), out='';
+  if(!h.length){ $('moves').innerHTML='<div class="empty">'+tt('notStarted')+'</div>'; return; }
+  for(var i=0;i<h.length;i+=2){
+    out+='<div class="n">'+(i/2+1)+'.</div>'+
+      '<div class="'+(i===h.length-1?'cur':'')+'">'+h[i]+'</div>'+
+      '<div class="'+(i+1===h.length-1?'cur':'')+'">'+(h[i+1]||'')+'</div>';
+  }
+  var el=$('moves'); el.innerHTML=out; el.scrollTop=el.scrollHeight;
+}
+function renderCaptured(){
+  var start={p:8,n:2,b:2,r:2,q:1}, cnt={w:{p:0,n:0,b:0,r:0,q:0},b:{p:0,n:0,b:0,r:0,q:0}};
+  var b=game.board();
+  for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=b[r][c]; if(p&&p.type!=='k') cnt[p.color][p.type]++; }
+  function lost(color){
+    var s='', order=['q','r','b','n','p'];
+    order.forEach(function(t){ for(var k=0;k<start[t]-cnt[color][t];k++) s+=pieceSVG(t,color); });
+    return s;
+  }
+  var opp=player==='w'?'b':'w';
+  $('capMine').innerHTML=lost(opp);
+  $('capBot').innerHTML=lost(player);
+  var diff=material(game,player)/100;
+  $('advMine').textContent=diff>0?'+'+diff:'';
+  $('advBot').textContent=diff<0?'+'+(-diff):'';
+}
+function setStatus(txt,busy,isOver){
+  $('status').textContent=txt;
+  $('dot').className='dot'+(busy?' busy':'')+(isOver?' over':'');
+}
+function gameOverText(){
+  if(game.in_checkmate()){
+    return game.turn()===player?tt('mateBot'):tt('mateYou');
+  }
+  if(game.in_stalemate()) return tt('stalemate');
+  if(game.insufficient_material()) return tt('insuff');
+  if(game.in_threefold_repetition()) return tt('threefold');
+  return tt('fifty');
+}
+function refreshStatus(){
+  over=game.game_over();
+  renderCards();
+  if(over){ setStatus(gameOverText(),false,true); if(!endSaid){endSaid=1; botSay(game.in_checkmate()?pick(game.turn()===player?MSG.win:MSG.lose):pick(MSG.draw));} return; }
+  if(thinking){ setStatus(tt('botThinking'),true,false); return; }
+  setStatus((game.in_check()?tt('checkPre'):'')+tt('yourTurnS'),false,false);
+}
+function playerMoveCount(){
+  var v=game.history({verbose:true}), n=0;
+  for(var i=0;i<v.length;i++) if(v[i].color===player) n++;
+  return n;
+}
+function updateButtons(){ $('undoBtn').disabled=playerMoveCount()===0; }
+function setEval(cp,turn){
+  var white=cp*(turn==='w'?1:-1);
+  var pct=(50+50*Math.tanh(white/450)).toFixed(1)+'%';
+  var num=Math.abs(white)>=9000?(white>0?'+M':'-M'):((white>0?'+':'')+(white/100).toFixed(2));
+  $('vfill').style.height=pct; $('hfill').style.width=pct;
+  $('vnum').textContent=num; $('hnum').textContent=num;
+}
+function showThought(res,isBook){
+  $('san').textContent=res.m.san;
+  botSay(isBook?openMsg(res.id,res.name):sayFor(res.tags));
+}
+
+/* ---------- Déroulement de la partie ---------- */
+function animateMove(r){
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if(!Element.prototype.animate) return;
+  var q=function(sq){return document.querySelector('.sq[data-sq="'+sq+'"]')};
+  function slide(from,to,knight){
+    var a=q(from), b=q(to); if(!a||!b) return;
+    var el=b.querySelector('.pcs'); if(!el) return;
+    var ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+    var dx=ra.left-rb.left, dy=ra.top-rb.top;
+    el.style.zIndex=10;
+    var frames=knight
+      ? [{transform:'translate('+dx+'px,'+dy+'px) scale(1)'},{transform:'translate('+dx/2+'px,'+dy/2+'px) scale(1.2)',offset:.5},{transform:'translate(0,0) scale(1)'}]
+      : [{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'translate(0,0)'}];
+    var an=el.animate(frames,{duration:knight?320:260,easing:'cubic-bezier(.22,.8,.3,1)'});
+    an.onfinish=an.oncancel=function(){ el.style.zIndex=''; };
+  }
+  slide(r.from,r.to,r.piece==='n');
+  if(r.flags.indexOf('k')>-1||r.flags.indexOf('q')>-1){
+    var rk=r.color==='w'?'1':'8', ks=r.flags.indexOf('k')>-1;
+    slide((ks?'h':'a')+rk,(ks?'f':'d')+rk,false);
+  }
+  if(r.captured){
+    var gsq=r.flags.indexOf('e')>-1?r.to.charAt(0)+r.from.charAt(1):r.to;
+    var host=q(gsq);
+    if(host){
+      var g=document.createElement('div'); g.className='ghost';
+      g.innerHTML=pieceSVG(r.captured,r.color==='w'?'b':'w');
+      host.appendChild(g);
+      var ga=g.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.55)'}],{duration:320,delay:140,easing:'ease-in',fill:'both'});
+      ga.onfinish=function(){ if(g.parentNode) g.parentNode.removeChild(g); };
+    }
+  }
+  var dest=q(r.to); if(dest) dest.classList.add('land');
+  if(game.in_check()&&!game.in_checkmate()){
+    var ksq=findKing(game,game.turn()), kh=ksq&&q(ksq), kel=kh&&kh.querySelector('.pcs');
+    if(kel) kel.animate([{transform:'translateX(0)'},{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'translateX(-3px)'},{transform:'translateX(0)'}],{duration:380,delay:240});
+  }
+}
+function makeMove(m){
+  var prev=game.history();
+  var r=game.move({from:m.from,to:m.to,promotion:m.promotion});
+  if(!r) return null;
+  lastMove={from:r.from,to:r.to}; sel=null; legal=[];
+  render(); animateMove(r); refreshStatus();
+  lastNote=addNote(r,prev);
+  if(r.color===player){ pendingNote=lastNote; reactPlayer(r); }
+  return r;
+}
+function afterMove(){
+  refreshStatus();
+  if(!over && game.turn()!==player) requestBot();
+}
+function requestBot(){
+  thinking=true; var my=++token;
+  $('san').textContent='…'; $('say').textContent=tt('searching');
+  refreshStatus(); updateButtons();
+  var book=bookMove();
+  if(book){
+    setTimeout(function(){
+      if(my!==token) return;
+      var res={m:book.m,tags:[],all:[],chosen:0,name:book.name,id:book.id};
+      showThought(res,true); lastBotCp=null; pendingNote=null;
+      thinking=false; makeMove(book.m); afterMove();
+    },350+Math.random()*350);
+    return;
+  }
+  var fen=game.fen(), turn=game.turn(), started=Date.now();
+  var run=function(){
+    if(worker){
+      queue=queue.then(function(){ if(my===token) worker.postMessage('setoption name Skill Level value '+curElo().skill); if(my===token) worker.postMessage('setoption name MultiPV value '+curElo().mpv); return my!==token?null:sfAnalyze(worker,fen,curElo().ms); });
+      return queue;
+    }
+    return new Promise(function(res){ setTimeout(function(){ res(internalAnalyze(game)); },60); });
+  };
+  run().then(function(lines){
+    if(my!==token||!lines) return;
+    if(!lines.length) lines=internalAnalyze(game);
+    var res=chooseMove(lines);
+    setEval(lines[0].cp,turn);
+    if(pendingNote&&lastBotCp!==null){ var cl=function(v){return Math.max(-1500,Math.min(1500,v))}; gradeNote(pendingNote,cl(lines[0].cp)-cl(lastBotCp)); }
+    pendingNote=null; lastBotCp=res.all&&res.all[res.chosen]?res.all[res.chosen].cp:null;
+    var wait=Math.max(0,(350+Math.random()*450)-(Date.now()-started));
+    setTimeout(function(){
+      if(my!==token) return;
+      showThought(res,false);
+      thinking=false; makeMove(res.m); styleNote(res); afterMove();
+    },wait);
+  });
+}
+function onSquare(sq){
+  if(thinking||over||game.turn()!==player) return;
+  var piece=game.get(sq);
+  if(sel && legal.some(function(m){return m.to===sq})){
+    var cands=legal.filter(function(m){return m.to===sq});
+    if(cands[0].promotion){ askPromotion(sel,sq); return; }
+    makeMove({from:sel,to:sq}); afterMove(); return;
+  }
+  if(piece && piece.color===player){
+    sel=sq; legal=game.moves({square:sq,verbose:true});
+  } else { sel=null; legal=[]; }
+  render();
+}
+function askPromotion(from,to){
+  pendingPromo={from:from,to:to};
+  var html='';
+  ['q','r','b','n'].forEach(function(t){ html+='<button type="button" data-p="'+t+'" aria-label="'+t+'">'+pieceSVG(t,player)+'</button>'; });
+  $('promoRow').innerHTML=html; $('promo').hidden=false;
+}
+function arrangeAnim(){
+  if((window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)||!Element.prototype.animate) return;
+  var br=$('board').getBoundingClientRect(), cy=br.top+br.height/2;
+  document.querySelectorAll('#board .sq').forEach(function(sq,i){
+    var el=sq.querySelector('.pcs'); if(!el) return;
+    var r=sq.getBoundingClientRect(), up=(r.top+r.height/2)<cy, col=i%8, row=Math.floor(i/8);
+    var dy=up?-(r.top-br.top+r.height*1.5):(br.bottom-r.top+r.height*.5);
+    el.animate([{transform:'translateY('+dy+'px) scale(.5)',opacity:0},{transform:'translateY(0) scale(1)',opacity:1}],{duration:520,delay:col*70+(up?row:7-row)*40,easing:'cubic-bezier(.22,.8,.3,1)',fill:'backwards'});
+  });
+}
+function newGame(){
+  token++; thinking=false;
+  if(worker){ try{worker.postMessage('stop')}catch(e){} }
+  game=new Chess(); sel=null; legal=[]; lastMove=null; over=false;
+  player=chosen==='r'?(Math.random()<.5?'w':'b'):chosen;
+  flip=player==='b';
+  $('san').textContent='…'; $('say').textContent=tt('waitFirst');
+  $('vfill').style.height='50%'; $('hfill').style.width='50%'; $('vnum').textContent='0.00'; $('hnum').textContent='0.00';
+  $('chat').innerHTML=''; $('notes').innerHTML=''; lastBotCp=null; pendingNote=null; lastNote=null; endSaid=0; botSay(pick(MSG.start));
+  render(); arrangeAnim(); refreshStatus();
+  if(game.turn()!==player) requestBot();
+}
+function undo(){
+  if(playerMoveCount()===0) return;
+  token++; thinking=false;
+  if(worker){ try{worker.postMessage('stop')}catch(e){} }
+  game.undo();
+  if(game.turn()!==player && game.history().length>0) game.undo();
+  var h=game.history({verbose:true});
+  lastMove=h.length?{from:h[h.length-1].from,to:h[h.length-1].to}:null;
+  sel=null; legal=[]; over=false; endSaid=0;
+  $('san').textContent='…'; $('say').textContent=tt('undone');
+  var nt=$('notes'); while(nt.children.length>game.history().length) nt.removeChild(nt.lastChild); pendingNote=null; lastBotCp=null;
+  render(); refreshStatus();
+  if(!game.game_over() && game.turn()!==player) requestBot();
+}
+
+/* ---------- Événements ---------- */
+$('board').addEventListener('click',function(e){
+  var el=e.target.closest('.sq'); if(el) onSquare(el.getAttribute('data-sq'));
+});
+$('promoRow').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b||!pendingPromo) return;
+  var p=b.getAttribute('data-p'), pp=pendingPromo; pendingPromo=null;
+  $('promo').hidden=true;
+  makeMove({from:pp.from,to:pp.to,promotion:p}); afterMove();
+});
+$('promo').addEventListener('click',function(e){
+  if(e.target===$('promo')){ pendingPromo=null; $('promo').hidden=true; }
+});
+$('undoBtn').addEventListener('click',undo);
+$('flipBtn').addEventListener('click',function(){ flip=!flip; render(); });
+$('newBtn').addEventListener('click',newGame);
+document.querySelectorAll('.colors button').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    chosen=btn.getAttribute('data-color');
+    document.querySelectorAll('.colors button').forEach(function(x){ x.setAttribute('aria-pressed',x===btn?'true':'false'); });
+  });
+});
+
+/* ---------- Onglet Choix ---------- */
+function tab(t){ $('app').setAttribute('data-tab',t); document.querySelectorAll('.tabs button').forEach(function(b){ b.setAttribute('aria-pressed',b.getAttribute('data-tab')===t?'true':'false'); }); }
+document.querySelectorAll('.tabs button').forEach(function(b){ b.addEventListener('click',function(){ tab(b.getAttribute('data-tab')); }); });
+function press(sel,attr,val){ document.querySelectorAll(sel).forEach(function(b){ b.setAttribute('aria-pressed',String(b.getAttribute(attr)===String(val))); }); }
+var SL_L={ag:'',ca:'',tr:'',po:'',en:'',ri:''};
+var ST={
+ poly:{ag:60,ca:50,tr:40,po:60,en:55,ri:50},
+ timide:{ag:20,ca:90,tr:10,po:60,en:50,ri:10},
+ escroc:{ag:50,ca:30,tr:95,po:40,en:40,ri:60},
+ posi:{ag:35,ca:65,tr:15,po:95,en:70,ri:15},
+ hyper:{ag:45,ca:55,tr:35,po:85,en:60,ri:35},
+ fin:{ag:30,ca:60,tr:20,po:70,en:95,ri:20},
+ aggr:{ag:95,ca:15,tr:40,po:35,en:30,ri:85},
+ morphy:{ag:90,ca:30,tr:35,po:70,en:45,ri:75,elo:2690,fav:'gambit Évans, partie italienne, gambit du roi'},
+ lasker:{ag:60,ca:65,tr:80,po:70,en:85,ri:45,elo:2720,fav:'espagnole, gambit dame refusé, écossaise'},
+ capa:{ag:40,ca:75,tr:10,po:85,en:98,ri:10,elo:2725,fav:'gambit dame refusé, espagnole, Caro-Kann'},
+ tal:{ag:98,ca:15,tr:70,po:45,en:40,ri:98,elo:2700,fav:'Najdorf, Dragon, gambit du roi'},
+ fischer:{ag:75,ca:55,tr:20,po:80,en:85,ri:30,elo:2785,fav:'e4, espagnole, Najdorf, est-indienne'},
+ karpov:{ag:45,ca:80,tr:15,po:98,en:92,ri:10,elo:2780,fav:'Caro-Kann, espagnole, gambit dame refusé'}
+};
+Object.keys(ST).forEach(function(k){ STY[k].stats=ST[k]; });
+var DEF={}, LEG=['morphy','lasker','capa','tal','fischer','karpov'];
+['morphy','lasker','capa','tal','fischer','karpov'].forEach(function(k){ var c=buildCustom(ST[k]); STY[k].m=c.m; STY[k].tol=c.tol; });
+Object.keys(STY).forEach(function(k){ if(STY[k].stats) DEF[k]={stats:JSON.parse(JSON.stringify(STY[k].stats)),m:STY[k].m,tol:STY[k].tol}; });
+function pickStyle(k){
+  curKey=k; press('[data-st]','data-st',k);
+  var S=curStyle(), st=S.stats, h='', lock=LEG.indexOf(k)>-1; $('customBox').hidden=lock;
+  $('styleDesc').textContent=S.n+' : '+S.d;
+  if(st){
+    h+='<div class="sub">'+(lock?tt('statsFixed'):tt('sliderHint'))+'</div>';
+    Object.keys(SL_L).forEach(function(x){ h+=lock?'<div class="st"><span>'+SL_L[x]+'</span><div class="bar"><i style="width:'+st[x]+'%"></i></div><b>'+st[x]+'</b></div>':'<div class="st"><span>'+SL_L[x]+'</span><input type="range" min="0" max="100" value="'+st[x]+'" data-ss="'+x+'"><b id="sv-'+x+'">'+st[x]+'</b></div>'; });
+    if(k!=='custom'&&!lock) h+='<div><button type="button" class="pill" id="resetSt">'+tt('resetStats')+'</button></div>';
+    if(st.elo) h+='<div class="sub">'+tt('eloPeak',{e:'<b>'+st.elo+'</b>',f:st.fav})+'</div><div><button type="button" class="pill" id="useElo">'+tt('atLevel',{e:st.elo})+'</button></div>';
+  }
+  $('statBox').innerHTML=h;
+  var u=$('useElo'); if(u) u.addEventListener('click',function(){ pickElo(st.elo); });
+  document.querySelectorAll('[data-ss]').forEach(function(i){ i.addEventListener('input',function(){
+    var x=i.getAttribute('data-ss'); S.stats[x]=+i.value; $('sv-'+x).textContent=i.value;
+    var c=buildCustom(S.stats); S.m=c.m; S.tol=c.tol; if(k==='custom'){ S.bk=c.bk; S.bkd=c.bkd; }
+  }); });
+  var r=$('resetSt'); if(r) r.addEventListener('click',function(){ var d=DEF[k]; S.stats=JSON.parse(JSON.stringify(d.stats)); S.m=d.m; S.tol=d.tol; pickStyle(k); });
+}
+function pickElo(e){ ELOK=e; press('[data-elo]','data-elo',e); var sl=$('eloSl'); if(sl) sl.value=e; var ev=$('eloVal'); if(ev) ev.textContent=tt('freeEloV',{e:e}); }
+var ELOMOD=[['Débutant',[800,1000,1200]],['Club',[1500,1800,2000]],['Maître',[2300,2600]],['Super grand maître',[2721,2746,2882]],['Maximum',[3620]]];
+$('eloRow').innerHTML=ELOMOD.map(function(m){return '<div class="mod"><div class="label">'+m[0]+'</div><div class="opts">'+m[1].map(function(e){return '<button type="button" class="pill" data-elo="'+e+'" aria-pressed="false">'+e+'</button>'}).join('')+'</div></div>'}).join('')+'<label class="sl"><span id="eloVal">Elo libre</span><input type="range" id="eloSl" min="800" max="3620" step="5" value="2300"></label>';
+$('eloSl').addEventListener('input',function(){ pickElo(+this.value); });
+function stBtns(keys){ return keys.map(function(k){return '<button type="button" class="pill" data-st="'+k+'" aria-pressed="false">'+STY[k].n+(STY[k].stats&&STY[k].stats.elo?' · '+STY[k].stats.elo:'')+'</button>'}).join(''); }
+$('styleRow').innerHTML=stBtns(['poly','timide','escroc','posi','hyper','fin','aggr']);
+$('legRow').innerHTML=stBtns(['morphy','lasker','capa','tal','fischer','karpov']);
+var SL=[['ag','Agressivité'],['ca','Prudence'],['tr','Pièges'],['po','Positionnel'],['en','Finales'],['ri','Sacrifices']];
+$('sliders').innerHTML=SL.map(function(x){return '<label class="sl"><span>'+x[1]+'</span><input type="range" min="0" max="100" value="50" data-sl="'+x[0]+'"></label>'}).join('');
+document.querySelectorAll('[data-elo]').forEach(function(b){ b.addEventListener('click',function(){ pickElo(+b.getAttribute('data-elo')); }); });
+document.querySelectorAll('[data-st]').forEach(function(b){ b.addEventListener('click',function(){ pickStyle(b.getAttribute('data-st')); }); });
+$('customBtn').addEventListener('click',function(){ var v={}; document.querySelectorAll('[data-sl]').forEach(function(i){ v[i.getAttribute('data-sl')]=+i.value; }); custom=buildCustom(v); custom.stats=v; pickStyle('custom'); press('[data-st]','data-st','none'); });
+$('goBtn').addEventListener('click',function(){ tab('play'); newGame(); });
+pickElo(2300); pickStyle('poly'); botSay(pick(MSG.start));
+
+/* ---------- Démarrage ---------- */
+render(); refreshStatus();
+var FRB=null;
+function setLang(l){
+  if(!FRB){
+    FRB={SAY:JSON.parse(JSON.stringify(SAY)),MSG:JSON.parse(JSON.stringify(MSG)),STYSAY:JSON.parse(JSON.stringify(STYSAY)),QUIPS:QUIPS.slice(),BN:{},STY:{}};
+    BOOK.forEach(function(x){FRB.BN[x.id]=x.n});
+    Object.keys(ST).forEach(function(k){FRB.STY[k]=[STY[k].n,STY[k].d,ST[k].fav]});
+  }
+  LANG=I18N[l]?l:'fr';
+  document.documentElement.lang=LANG;
+  var sel=$('lang'); if(sel) sel.value=LANG;
+  try{localStorage.setItem('fd2lang',LANG)}catch(e){}
+  document.querySelectorAll('[data-i18n]').forEach(function(e){e.textContent=tt(e.getAttribute('data-i18n'))});
+  document.querySelectorAll('[data-i18n-title]').forEach(function(e){e.title=tt(e.getAttribute('data-i18n-title'))});
+  document.querySelectorAll('[data-i18n-aria]').forEach(function(e){e.setAttribute('aria-label',tt(e.getAttribute('data-i18n-aria')))});
+  document.documentElement.style.setProperty('--notes-empty',JSON.stringify(tt('notesEmpty')));
+  PN=I18N[LANG].pn||I18N.en.pn;
+  var slL=tt('slL').split('|'); Object.keys(SL_L).forEach(function(k,i){SL_L[k]=slL[i]});
+  var gr=tt('gr').split('|'); GR.forEach(function(g,i){g[1]=gr[i]});
+  var B=BANT[LANG];
+  [['SAY',SAY],['MSG',MSG],['STYSAY',STYSAY]].forEach(function(p){ Object.keys(FRB[p[0]]).forEach(function(k){ p[1][k]=(B&&B[p[0]]&&B[p[0]][k])||FRB[p[0]][k]; }); });
+  QUIPS=(B&&B.QUIPS)||FRB.QUIPS;
+  var bn=BNAMES[LANG]||{};
+  BOOK.forEach(function(x){ x.n=bn[x.id]||FRB.BN[x.id]; });
+  Object.keys(FRB.STY).forEach(function(k){ var T=(LANG==='fr'||!STYT[LANG])?FRB.STY[k]:(STYT[LANG][k]||FRB.STY[k]); STY[k].n=T[0]; STY[k].d=T[1]; if(T[2]) ST[k].fav=T[2]; });
+  if(custom){ custom.n=tt('customN'); custom.d=tt('customD'); }
+  var em=tt('elomod').split('|'); document.querySelectorAll('#eloRow .mod > .label').forEach(function(el,i){el.textContent=em[i]});
+  var sc=tt('slc').split('|'); document.querySelectorAll('#sliders .sl > span').forEach(function(el,i){el.textContent=sc[i]});
+  document.querySelectorAll('[data-st]').forEach(function(b){ var k=b.getAttribute('data-st'); b.textContent=STY[k].n+(STY[k].stats&&STY[k].stats.elo?' · '+STY[k].stats.elo:''); });
+  pickElo(ELOK); pickStyle(curKey);
+  render(); refreshStatus();
+}
+$('lang').addEventListener('change',function(){ setLang(this.value); });
+var initLang=''; try{ initLang=localStorage.getItem('fd2lang')||''; }catch(e){}
+if(!I18N[initLang]){ var nl=((navigator.language||'fr')+'').slice(0,2).toLowerCase(); initLang=I18N[nl]?nl:'en'; }
+setLang(initLang); $('chat').innerHTML=''; botSay(pick(MSG.start));
+makeEngine().then(function(w){
+  worker=w;
+  engineName=w?'Stockfish 10 + minimax de style':'moteur interne (minimax)';
+  $('engineState').textContent=engineName;
+  refreshStatus();
+});
+window.__fatDog2={onSquare:onSquare,state:function(){return {fen:game.fen(),thinking:thinking,player:player,history:game.history()}}};
+})();
+</script>
+
+</body></html>
